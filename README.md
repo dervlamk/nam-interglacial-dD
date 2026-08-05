@@ -6,25 +6,51 @@ control and against proxy water-isotope (δD) records. The focus is on precipita
 transport, and water isotopes over North America (including the North American Monsoon region),
 evaluated seasonally (ANN / JFM / JAS).
 
+The proxy records are leaf-wax δD (C30 fatty-acid methyl esters) from two Gulf of California
+sediment cores — NH22P and DSDP-480/479 — converted to δD of precipitation and to percent-of-annual
+July–August–September rainfall, the monsoon-strength metric.
+
 This is a research-analysis repository, not a software package: there is no build/test suite, and
 the "output" is the set of Jupyter notebooks and the figures they produce.
+
+## Two halves, two machines
+
+Neither machine holds all the data, deliberately:
+
+| | Model half | Proxy half |
+|---|---|---|
+| Runs on | **NCAR HPC only** (Casper/Derecho, `/glade`) | **Laptop only** (OneDrive) |
+| Language | NCL + NCO + Python | MATLAB + Python |
+| Notebooks | `LGM_analyses`, `LIG127k_analyses_*` | `fig1`–`fig3` |
+
+iCESM output is never copied off `/glade`; proxy and observational data is never copied onto it.
+Only small derived products cross, and they cross *through this repo* — which is why
+`proxy_data/*.csv` is tracked. The MATLAB under `scripts/matlab/` is present in a Casper clone
+for provenance and editing but **cannot run there** (it needs a local MATLAB plus toolbox
+functions outside this repo). That is expected.
 
 ## Repository structure
 
 ```
 .
-├── LGM_analyses.ipynb                          # LGM vs. PI analysis and figures
-├── LIG127k_analyses_PALEOCALADJUSTED.ipynb     # LIG vs. PI analysis (calendar-adjusted, canonical)
-├── LIG127k_analyses_NOT_paleocaladjust.ipynb   # LIG vs. PI analysis (calendar not adjusted)
+├── LGM_analyses.ipynb                          # MODEL: LGM vs. PI analysis and figures
+├── LIG127k_analyses_PALEOCALADJUSTED.ipynb     # MODEL: LIG vs. PI (calendar-adjusted, canonical)
+├── LIG127k_analyses_NOT_paleocaladjust.ipynb   # MODEL: LIG vs. PI (calendar not adjusted)
+├── fig1_swna_modern_climate.ipynb              # PROXY: modern SW-NA climatology (OIPC/IMERG/ETOPO5)
+├── fig2_dsdp480-479_agemodel.ipynb             # PROXY: Bacon age-depth models + the 480/479 splice
+├── fig3_dDwax_timeseries.ipynb                 # PROXY: δD records vs. LR04; writes proxy_data/*.csv
 ├── environment.yml                             # gcm_analysis conda environment spec
 ├── config/
 │   └── paths.env.example                       # Template for local path overrides (copy to paths.env)
-├── proxy_data/                                 # Timeslice-mean proxy δD records by core (Holocene/LGM/LIG)
-├── tools/                                      # Repo tooling (notebook-output stripping, not part of the science pipeline)
+├── proxy_data/                                 # Timeslice-mean proxy δD by core; see its README
+├── deprecated/                                 # Superseded code, frozen for provenance — reference only
+├── tools/                                      # Repo tooling (notebook-output stripping)
 └── scripts/
+    ├── matlab/                                 # PROXY pipeline: dDwax → dDp → %JAS (laptop only)
     ├── ncl/                                    # Concatenate/regrid raw CESM output into intermediate netCDFs
     ├── nco/                                    # NCO (ncks/ncap2) isotope post-processing
-    └── py_functions/                           # Shared xarray/cartopy plotting & data helpers used by the notebooks
+    ├── py_functions/                           # Shared xarray/cartopy plotting & data helpers
+    └── claude_casper.sh                        # Interactive Casper compute node (stay off login nodes)
 ```
 
 ### Which LIG notebook to use

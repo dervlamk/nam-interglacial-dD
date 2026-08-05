@@ -4,16 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A paleoclimate research project analyzing iCESM1.2 (isotope-enabled CESM) simulations of the Last
-Interglacial (LIG, ~127ka) and Last Glacial Maximum (LGM, ~21ka), compared against pre-industrial
-(PI) control and proxy records (water isotopes in speleothems/sediment cores, expressed as δD).
-It is not a software package — there is no build, lint, or test suite. The deliverables are the
-three top-level Jupyter notebooks and the figures they produce.
+A paleoclimate research project reconstructing North American Monsoon strength across the last
+two interglacials, with **two halves that run on different machines**:
 
-This is an NCAR HPC (Casper/Derecho, "glade" filesystem) workflow, not portable off that system.
-Raw/scratch data-directory paths are read from `config/paths.env` (see "Path configuration"
-below) rather than hardcoded, but everything else (case names, per-file variable lists) is still
-hand-edited per script.
+| | Model half | Proxy half |
+|---|---|---|
+| What | iCESM1.2 simulations of LIG (~127 ka), LGM (~21 ka) vs. PI control | Leaf-wax δD from two Gulf of California cores (NH22P, DSDP-480/479) |
+| Where | **NCAR HPC only** (Casper/Derecho, `/glade`) | **Laptop only** (proxy + obs data on OneDrive) |
+| Language | NCL + NCO + Python notebooks | MATLAB + Python notebooks |
+| Notebooks | `LGM_analyses`, `LIG127k_analyses_*` | `fig1_swna_modern_climate`, `fig2_dsdp480-479_agemodel`, `fig3_dDwax_timeseries` |
+
+It is not a software package — there is no build, lint, or test suite. The deliverables are the
+top-level Jupyter notebooks and the figures they produce.
+
+**Neither machine has all the data, and that is deliberate.** iCESM output is never copied off
+`/glade`; proxy and observational data is never copied onto it. Only small derived products
+cross, and they cross *through this repo* — `proxy_data/*.csv` is how the model notebooks
+receive proxy numbers, which is why those CSVs are tracked. Paths for both halves come from
+`config/paths.env` (see "Path configuration"); everything else (case names, per-file variable
+lists) is still hand-edited per script.
+
+**The MATLAB code in `scripts/matlab/` cannot run on Casper** — it needs a local MATLAB plus
+toolbox functions (`icevolcorr`, `ebisuzaki`, `longitude_flip`) that live in
+`~/Documents/MATLAB/toolbox/`, outside this repo. It is cloned there for provenance and editing
+only. That is expected, not broken.
 
 ## Repository layout
 
@@ -60,9 +74,66 @@ hand-edited per script.
   `config/paths.env` themselves (fail with an explicit error if it doesn't exist yet).
 - `proxy_data/*.csv` — timeslice-mean proxy δD records (Holocene, LGM, LIG) by core, with lon/lat
   and 1-sigma error, used in the notebooks to validate model output against real-world records.
-  Only `timeslice_mean_proxy_dDraw.csv` is actually read by the notebooks; see
-  `proxy_data/README.md` for the (inferred, unconfirmed) relationship between the two files and
-  what's still undocumented about their provenance.
+  Only `timeslice_mean_proxy_dDraw.csv` is actually read by the notebooks — that is correct;
+  the other file came from a cell its author disabled. `proxy_data/README.md` documents the
+  provenance of both, the ε offset between them, and the caveat about anomaly cancellation.
+- `scripts/matlab/` — the proxy pipeline (laptop only). See "The proxy half" above.
+- `fig1_swna_modern_climate.ipynb`, `fig2_dsdp480-479_agemodel.ipynb`,
+  `fig3_dDwax_timeseries.ipynb` — the proxy-side figure notebooks (laptop only).
+- `deprecated/` — superseded code kept for provenance, **reference only**. Its hardcoded
+  absolute paths are dead and are left that way deliberately; see `deprecated/README.md`.
+- `scripts/claude_casper.sh` — grabs an interactive Casper compute node. Do not run agentic
+  tooling on a login node; the login-node policy reaps sustained CPU/memory/I/O and drops the
+  SSH session.
+
+## The proxy half — `scripts/matlab/` and `fig*.ipynb`
+
+Runs on the laptop only. Reads from `$PROXY_DATA_DIR` and `$OBS_DATA_DIR` (OneDrive).
+
+**Pipeline order** (each stage hands off by file, not by call — MATLAB writes `.mat`/`.xlsx`
+into the OneDrive proxy tree and the notebooks read those):
+
+1. `dDwax_data_processing_{nh22p,d480_d479}.m` — process raw δD<sub>C30</sub> measurements.
+2. `dDp_epsilon_calculation.m` — the live δD<sub>p</sub> calculation. 2500-iteration Monte
+   Carlo over C3/C4 endmembers → fraction C4 → apparent fractionation ε → δD<sub>p</sub>.
+   One `%%` section per core.
+3. `pJAS_calculation.m` — Bayesian univariate regression (Gibbs, 10 chains × 1000 draws,
+   first 200 discarded, thinned by 2, R̂ diagnostic) mapping δD<sub>p</sub> → %JAS rainfall.
+   **Not self-contained** — expects `X` (%JAS) and `Y` (δD) already in the workspace.
+4. `SST_dD_correlation.m` — δD<sub>p</sub> against SST and LR04 δ¹⁸O.
+5. `fig1`/`fig2`/`fig3` notebooks — figures.
+
+`avg_monthly_precip_Tucson.m` and `jas_instrumental_precip_timeseries.m` are standalone
+instrumental-record helpers feeding the modern-climatology figure.
+
+### Scientific invariants — deliberate, do not "correct" them
+
+- **δD<sub>p</sub> is computed from raw δD<sub>C30</sub>, not the ice-volume-corrected series.**
+  In `dDp_epsilon_calculation.m` the `dDivc` line is commented out and `dDraw` is used. This is
+  intentional: it makes the proxy directly comparable to iCESM δD<sub>p</sub>, which already
+  contains the ice-sheet isotope effect. `dDivc` is still computed and stored, and is what the
+  `dDivc_timeseries` figure plots. Know which one a figure uses before changing anything.
+- **δ¹³C is prescribed by climate state, not measured per sample** — glacial/interglacial means
+  from Bhattacharya et al. (2018): −27.16‰ glacial, −26.67‰ interglacial, switched at
+  18.5 / 115 / 130 ka.
+- **Endmembers come from the Desert Museum compilation**, not literature defaults: δ¹³C
+  `c4end = −24.2 ± 3.2`, `c3end = −32.7 ± 4`; ε `c4dd = −107.8 ± 3.7`, `c3dd = −82 ± 1`. The
+  `c3dd` value deliberately departs from Sachse et al. (2012)'s −113; the code comment records
+  both. Don't retune these.
+- **Beta prior on fraction-C4 is uniform** (`m = 0.5`, `n = 2`) with pseudo-sample size
+  `N = 5000`; `iters = 2500`; analytical uncertainty added as 2‰ (1σ) Gaussian noise.
+- **Autocorrelated series are correlated with the Ebisuzaki phase-randomization test**, never
+  `corrcoef` — see the header of `SST_dD_correlation.m`.
+- **Ensembles are carried, not collapsed.** δD<sub>p</sub> and %JAS are `(age × ensemble)`
+  arrays; bands are percentiles of the *sorted* ensemble (2.5/97.5 for 2σ, 16/84 for 1σ) and
+  the central line is the **median**, not the mean. Bacon age models are the same shape.
+- **Timeslice windows differ between figures on purpose** — see `proxy_data/README.md`. The
+  CSV exports use Holocene 0–4, LGM 18–24, LIG 117–130, PGM 135–150 ka; `fig3`'s interglacial
+  bands are HOL 0–11.7, LIG 117–130; the MATLAB box plots use Holocene <11.7, LGM 11.7–27.
+  Do not unify them.
+- **OIPC is treated as already flux-weighted**, so seasonal isotope means are plain unweighted
+  month means. IMERG is converted mm/hr → mm/day with `* 24`.
+- Box plots constrain whiskers to the 5th/95th percentiles, not Tukey 1.5·IQR.
 
 ## Data pipeline (order of operations)
 
@@ -84,9 +155,18 @@ where one stage writes still requires updating the next stage's read location to
 
 ## Path configuration
 
-Base data directories (`SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`,
-`LIG_TIMESERIES_JS_DIR`) live in `config/paths.env` (gitignored; copy from
-`config/paths.env.example`):
+Base data directories live in `config/paths.env` (gitignored; copy from
+`config/paths.env.example`). Two blocks, one per machine — set the block for the machine you
+are on and leave the other unset:
+
+- **HPC:** `SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`,
+  `LIG_TIMESERIES_JS_DIR`, and `LGM_CASE_DIR` (**not yet set** — the LGM case
+  `b.e12.B1850C5.f19_g16.i21ka.03` has not been located on glade; the only known copy is on an
+  unmounted lab volume. Search glade before transferring anything.)
+- **Laptop:** `PROXY_DATA_DIR`, `OBS_DATA_DIR`, `FIG_OUTPUT_DIR`.
+
+Env vars rather than a YAML/Python config because NCL `getenv()`, the NCO shell scripts, and
+Python all read them; a Python-only config would strand two-thirds of the pipeline.
 
 - `scripts/nco/*.sh` source it directly.
 - `scripts/ncl/*.ncl` read it via NCL's `getenv()` — `source config/paths.env` in your shell
