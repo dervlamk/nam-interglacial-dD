@@ -68,3 +68,15 @@ sys.path.append(module_path + "/scripts/py_functions")
 ```
 
 See `CLAUDE.md` for more detail on the codebase's internal structure and conventions.
+
+## Setup
+
+After cloning, run:
+
+```bash
+./tools/setup_git_filters.sh
+```
+
+This registers a git clean filter that strips notebook cell outputs (embedded figures,
+execution counts) before they're committed, so notebook diffs stay readable and git history
+doesn't balloon with binary image data. See `.gitattributes` / `tools/strip_notebook_output.py`.
