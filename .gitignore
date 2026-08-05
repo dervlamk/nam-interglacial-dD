@@ -16,3 +16,6 @@ __pycache__/
 # Local outputs / scratch (not meant to live in the repo)
 *.nc
 figures/
+
+# Local path overrides (copy config/paths.env.example to fill this in)
+config/paths.env

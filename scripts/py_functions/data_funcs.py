@@ -24,6 +24,7 @@ def get_season(season='ann'):
     Index months to average over to derive an annual or seasonal mean
         - can only be applied to monthly climatologies
     """
+    mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     if season in ['ANNUAL', 'ANN', 'ann']:
         mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     if season in ['DJF', 'djf']:
@@ -41,7 +42,7 @@ def get_season(season='ann'):
     if season in ['SON', 'son']:
         mons = [8, 9, 10]
     if season==None:
-        pass
+        mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     return mons
 
 def longitude_flip(var):

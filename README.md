@@ -16,10 +16,14 @@ the "output" is the set of Jupyter notebooks and the figures they produce.
 ├── LGM_analyses.ipynb                          # LGM vs. PI analysis and figures
 ├── LIG127k_analyses_PALEOCALADJUSTED.ipynb     # LIG vs. PI analysis (calendar-adjusted, canonical)
 ├── LIG127k_analyses_NOT_paleocaladjust.ipynb   # LIG vs. PI analysis (calendar not adjusted)
+├── environment.yml                             # gcm_analysis conda environment spec
+├── config/
+│   └── paths.env.example                       # Template for local path overrides (copy to paths.env)
 ├── proxy_data/                                 # Timeslice-mean proxy δD records by core (Holocene/LGM/LIG)
+├── tools/                                      # Repo tooling (notebook-output stripping, not part of the science pipeline)
 └── scripts/
-    ├── *.ncl                                   # Concatenate/regrid raw CESM output into intermediate netCDFs
-    ├── *.sh                                    # NCO (ncks/ncap2) isotope post-processing
+    ├── ncl/                                    # Concatenate/regrid raw CESM output into intermediate netCDFs
+    ├── nco/                                    # NCO (ncks/ncap2) isotope post-processing
     └── py_functions/                           # Shared xarray/cartopy plotting & data helpers used by the notebooks
 ```
 
@@ -35,20 +39,42 @@ for comparison but should not be treated as the primary result.
 Raw iCESM1.2 output is not stored in this repo — it lives on NCAR's `/glade/campaign/...`
 filesystem. The pipeline runs in four stages:
 
-1. **NCL concatenation** (`scripts/make_*.ncl`, `scripts/maketimeseries.ncl`) — build per-experiment
-   netCDF files from raw CESM history/timeseries output (2D/3D atmosphere, ocean, SST, D/H and O
-   isotope variables).
-2. **Pressure-level regridding** (`scripts/pressureRegrid*.ncl`) — interpolate 3D fields from the
-   model's hybrid sigma-pressure levels onto standard pressure levels via `vinth2p`.
-3. **NCO isotope post-processing** (`scripts/*.sh`) — extract/derive isotope tracer variables
+1. **NCL concatenation** (`scripts/ncl/make_*.ncl`, `scripts/ncl/maketimeseries.ncl`) — build
+   per-experiment netCDF files from raw CESM history/timeseries output (2D/3D atmosphere, ocean,
+   SST, D/H and O isotope variables).
+2. **Pressure-level regridding** (`scripts/ncl/pressureRegrid*.ncl`) — interpolate 3D fields from
+   the model's hybrid sigma-pressure levels onto standard pressure levels via `vinth2p`.
+3. **NCO isotope post-processing** (`scripts/nco/*.sh`) — extract/derive isotope tracer variables
    (requires `module load nco`).
 4. **Python analysis** (top-level notebooks) — load the intermediate netCDFs with xarray, compute
    isotope ratios in per-mil (‰) notation, precipitation-weight them, take LIG−PI / LGM−PI
-   differences, and produce figures, validating against `proxy_data/*.csv` and external
-   observational datasets (e.g. IMERG precipitation, ETOPO topography).
+   differences, and produce figures, validating against `proxy_data/*.csv` (see
+   `proxy_data/README.md`) and external observational datasets (e.g. IMERG precipitation, ETOPO
+   topography).
 
-Each stage's output path is currently hardcoded in the script/notebook that produced it and in the
-one that consumes it — see `CLAUDE.md` for the full file-by-file breakdown.
+Each stage's output path is consumed by the next stage's input path (e.g. an NCL script's `opath`
+is the shell script's `DATADIR`, which is the notebook's `dpath0`) — see `CLAUDE.md` for the full
+file-by-file breakdown, and "Path configuration" below for how those paths are set.
+
+### Path configuration
+
+Raw/scratch directory paths are read from environment variables rather than hardcoded, so a new
+clone only needs one file edited:
+
+```bash
+cp config/paths.env.example config/paths.env
+# edit config/paths.env for your own SCRATCH_DIR / WORK_DATA_DIR / etc.
+source config/paths.env
+```
+
+- `scripts/nco/*.sh` source `config/paths.env` automatically (and fail with a clear error if it's
+  missing).
+- `scripts/ncl/*.ncl` read these via NCL's `getenv()`, so `source config/paths.env` in your shell
+  before running `ncl`.
+- Notebooks read `WORK_DATA_DIR` via `os.environ.get(...)`, falling back to the original
+  `/glade/work/dervlamk` if it's unset, so they still run out-of-the-box without any setup.
+
+`config/paths.env` is gitignored — it holds machine/user-specific paths, not something to commit.
 
 ## Environment
 

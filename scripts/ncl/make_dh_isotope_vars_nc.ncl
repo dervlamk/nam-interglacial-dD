@@ -8,10 +8,10 @@ begin
 ;====== I/O ====
 ; input path
 ; dpath = "/glade/campaign/cgd/ppc/jiangzhu/iCESM1.2/b.e12.B1850C5.f19_g16.iPI.01/climo/" 
-dpath = "/glade/campaign/cesm/development/palwg/LastInterglacial/iCESM1.2/b.e12.B1850C5.f19_g16.iLIG127k.001/atm/proc/tseries/month_1/"
+dpath = getenv("LIG_CASE_DIR")+"/atm/proc/tseries/month_1/" ; set LIG_CASE_DIR in config/paths.env
 
 ; netcdf output
-opath = "/glade/derecho/scratch/dervlamk/LIG/"
+opath = getenv("SCRATCH_DIR")+"/LIG/" ; set SCRATCH_DIR in config/paths.env
 ofile = "dh.precIsotopes.tseries.iLIG127K.nc"
 pthNc = opath+ofile
 ncdf = addfile(pthNc,"c")

@@ -6,9 +6,9 @@ load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 begin
 
 ;====== I/O ====
-dpath = "/glade/campaign/cesm/development/palwg/LastInterglacial/iCESM1.2/b.e12.B1850C5.f19_g16.iLIG127k.001/ocn/proc/tseries/month_1/"
+dpath = getenv("LIG_CASE_DIR")+"/ocn/proc/tseries/month_1/" ; set LIG_CASE_DIR in config/paths.env
 
-opath = "/glade/scratch/dervlamk/LIG/"
+opath = getenv("SCRATCH_DIR")+"/LIG/" ; set SCRATCH_DIR in config/paths.env
 ofile = "ocn.vars.iLIG127K.nc"
 pthNc = opath+ofile
 ncdf = addfile(pthNc,"c")

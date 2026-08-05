@@ -5,9 +5,12 @@ load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
 begin
 
-dpath = "/glade/campaign/univ/uazn0018/jiangzhu/archive/b.e12.B1850C5.f19_g16.iPI.01/climo/"
-filen = "b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc"
-all_files = systemfunc("ls /glade/campaign/univ/uazn0018/jiangzhu/archive/b.e12.B1850C5.f19_g16.iPI.01/climo/b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc")
+; NOTE: despite the filename, this script's output (title/ofile below) is PI-climatology
+; data, same as pressureRegrid_PI_climo.ncl -- kept as-is rather than silently reworked;
+; confirm which of the two you actually need before running.
+;dpath = "/glade/campaign/univ/uazn0018/jiangzhu/archive/b.e12.B1850C5.f19_g16.iPI.01/climo/"
+;filen = "b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc"
+all_files = systemfunc("ls ")
 data_clim = addfiles(all_files,"r")
 
 temp = data_clim[:]->T
@@ -31,7 +34,7 @@ uwindP = vinth2p(uwind(:,:,:,:),hyam,hybm,pnew,PS(:,:,:),interp,P0mb,1,extrap)
 
 ;======Write out netcdf file====
 
-opath = "/glade/scratch/dervlamk/PI/"
+opath = getenv("SCRATCH_DIR")+"/PI/" ; set SCRATCH_DIR in config/paths.env
 ofile = "atm.3d.vars.iCESM1pt2.PI.nc"
 pthNc = opath+ofile
 ncdf = addfile(pthNc,"c")

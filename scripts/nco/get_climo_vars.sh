@@ -1,9 +1,18 @@
 #!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG="$SCRIPT_DIR/../../config/paths.env"
+if [ ! -f "$CONFIG" ]; then
+    echo "Missing $CONFIG -- copy config/paths.env.example to config/paths.env and edit it first." >&2
+    exit 1
+fi
+source "$CONFIG"
 
 module load nco
 
-export DATADIR=/glade/derecho/scratch/dervlamk/PI
-export IFILE=/glade/campaign/univ/uazn0018/jiangzhu/archive/b.e12.B1850C5.f19_g16.iPI.01/climo/b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc
+export DATADIR=$SCRATCH_DIR/PI
+export IFILE=$PI_CLIMO_DIR/b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc
 export OFILE=$DATADIR/dh.vars.PI.hybrid_lev.nc  #atm.2d.vars.iCESM1pt2.PI.nc
 
 ncks -A -h -v H2OR $IFILE $OFILE

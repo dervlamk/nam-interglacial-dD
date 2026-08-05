@@ -6,7 +6,7 @@ load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 begin
 
 ;======List and open all files related to desired variable====
-dpath     = "/glade/scratch/jschnaubelt/timeseries/b.e12.B1850C5.f19_g16.iLIG127k.001/ocn/proc/tseries/month_1/"
+dpath     = getenv("LIG_TIMESERIES_JS_DIR")+"/" ; set LIG_TIMESERIES_JS_DIR in config/paths.env
 all_files = systemfunc("cd "+dpath+"; ls b.e12.B1850C5.f19_g16.iLIG127k.001.pop.h.R18O.*")
 data_all  = addfiles (dpath+all_files, "r")
 
@@ -19,7 +19,7 @@ r18o = data_all[:]->R18O
 ;printVarSummary(hdol)
 ;======Write out netcdf file====
 
-opath = "/glade/scratch/dervlamk/LIG/"
+opath = getenv("SCRATCH_DIR")+"/LIG/" ; set SCRATCH_DIR in config/paths.env
 ofile = "R18O.pop.iLIG127k.nc"
 pthNc = opath+ofile
 ncdf = addfile(pthNc,"c")

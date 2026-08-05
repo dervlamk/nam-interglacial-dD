@@ -10,8 +10,10 @@ Interglacial (LIG, ~127ka) and Last Glacial Maximum (LGM, ~21ka), compared again
 It is not a software package — there is no build, lint, or test suite. The deliverables are the
 three top-level Jupyter notebooks and the figures they produce.
 
-This is an NCAR HPC (Casper/Derecho, "glade" filesystem) workflow. Scripts contain hardcoded
-absolute paths under `/glade/...` and are not portable off that system.
+This is an NCAR HPC (Casper/Derecho, "glade" filesystem) workflow, not portable off that system.
+Raw/scratch data-directory paths are read from `config/paths.env` (see "Path configuration"
+below) rather than hardcoded, but everything else (case names, per-file variable lists) is still
+hand-edited per script.
 
 ## Repository layout
 
@@ -27,18 +29,22 @@ absolute paths under `/glade/...` and are not portable off that system.
     LIG-related unless there's a specific reason to compare against the unadjusted output.
 - `scripts/py_functions/` — shared Python helpers imported by the notebooks via `sys.path` (see
   "Import pattern" below):
-  - `data_funcs.py` — coordinate-agnostic helpers (`get_xy_coords`, `get_season`,
-    `longitude_flip`, `regrid_like`, `latitude_weighted_mean`) used to work with xarray
+  - `data_funcs.py` — the canonical source for `get_xy_coords`/`get_season`, plus
+    `longitude_flip`, `regrid_like`, `latitude_weighted_mean`, used to work with xarray
     DataArrays whose lat/lon/time coordinate names vary between datasets.
+  - `map_plot_tools.py`, `line_plot_tools.py`, `plot_tools.py` all `from data_funcs import *`
+    rather than redefining `get_xy_coords`/`get_season` locally — don't reintroduce local copies
+    of those two functions when editing these files.
   - `map_plot_tools.py` — cartopy-based map plotting (`quick_map` and friends).
   - `line_plot_tools.py` — line/seasonal-cycle plotting.
   - `colorbar_funcs.py` — colormap construction/clipping/combination utilities (works with
     matplotlib, cmocean, colorcet).
-  - `plot_tools.py` — **dead code**, imports a nonexistent `misc_functions` module and is not
-    imported by any notebook or script. Do not build on it without fixing the missing import.
-- `scripts/*.ncl` — NCL scripts that build intermediate netCDF files from raw CESM history/
-  timeseries output on `/glade/campaign/...`. Each is a standalone, hand-edited script (paths and
-  variable lists are edited in place, not passed as arguments):
+  - `plot_tools.py` — still not imported by any notebook (superseded by `map_plot_tools.py`), but
+    it is now a valid, working module if something starts depending on it.
+- `scripts/ncl/` — NCL scripts that build intermediate netCDF files from raw CESM history/
+  timeseries output on `/glade/campaign/...`. Each is a standalone, hand-edited script (variable
+  lists are edited in place, not passed as arguments); base directories come from
+  `config/paths.env` via `getenv()`:
   - `make_2d_atm_vars_nc.ncl`, `make_3d_atm_vars_nc.ncl`, `make_ocn_vars_nc.ncl`,
     `make_sst_nc.ncl`, `make_dh_isotope_vars_nc.ncl`, `make_o_isotope_vars_nc.ncl`,
     `maketimeseries.ncl` — concatenate per-variable CESM output files (atmosphere/ocean, 2D/3D,
@@ -46,29 +52,50 @@ absolute paths under `/glade/...` and are not portable off that system.
   - `pressureRegrid.ncl`, `pressureRegrid_LIG.ncl`, `pressureRegrid_PI_climo.ncl`,
     `pressureRegrid_isotopes.ncl` — interpolate 3D fields (and isotope tracers) from the model's
     hybrid sigma-pressure levels onto fixed pressure levels via `vinth2p`.
-- `scripts/*.sh` — NCO (`ncks`/`ncap2`) wrappers for isotope post-processing (extracting isotope
-  tracer variables, integrating isotope ratios over levels). Require `module load nco`.
+    **Note:** despite its name, `pressureRegrid_LIG.ncl`'s actual output is PI-climatology data,
+    functionally overlapping with `pressureRegrid_PI_climo.ncl` — this predates any of the
+    reorganization work and hasn't been resolved; confirm which one you mean before relying on it.
+- `scripts/nco/` — NCO (`ncks`/`ncap2`) wrappers for isotope post-processing (extracting isotope
+  tracer variables, integrating isotope ratios over levels). Require `module load nco`; source
+  `config/paths.env` themselves (fail with an explicit error if it doesn't exist yet).
 - `proxy_data/*.csv` — timeslice-mean proxy δD records (Holocene, LGM, LIG) by core, with lon/lat
   and 1-sigma error, used in the notebooks to validate model output against real-world records.
-  `_dD` and `_dDraw` variants differ in whether values are pre-processed/normalized.
+  Only `timeslice_mean_proxy_dDraw.csv` is actually read by the notebooks; see
+  `proxy_data/README.md` for the (inferred, unconfirmed) relationship between the two files and
+  what's still undocumented about their provenance.
 
 ## Data pipeline (order of operations)
 
 1. Raw CESM output lives on `/glade/campaign/.../iCESM1.2/...` (per-experiment, per-variable
    timeseries or climatology files) — not in this repo.
-2. `scripts/*.ncl` scripts concatenate/select variables into per-experiment intermediate netCDF
-   files (written to scratch, e.g. `/glade/derecho/scratch/dervlamk/...` or
-   `/glade/scratch/dervlamk/...`).
-3. `scripts/pressureRegrid*.ncl` regrid 3D fields onto standard pressure levels where needed.
-4. `scripts/*.sh` (NCO) scripts extract/derive isotope-related variables from climo files.
+2. `scripts/ncl/make_*.ncl` scripts concatenate/select variables into per-experiment intermediate
+   netCDF files (written to `$SCRATCH_DIR/PI` or `$SCRATCH_DIR/LIG`).
+3. `scripts/ncl/pressureRegrid*.ncl` regrid 3D fields onto standard pressure levels where needed.
+4. `scripts/nco/*.sh` scripts extract/derive isotope-related variables from climo files.
 5. Notebooks load the resulting netCDF files with xarray, compute derived quantities (isotope
    ratios in per-mil notation, precipitation-weighted isotope values, LIG−PI / LGM−PI
    differences), and produce figures — compared where relevant against `proxy_data/*.csv` and
-   external obs/reanalysis (e.g. IMERG precip, ETOPO topography) referenced by absolute path.
+   external obs/reanalysis (e.g. IMERG precip, ETOPO topography) under `$WORK_DATA_DIR`.
 
-Because each stage's output path is hardcoded and consumed by the next stage's hardcoded input
-path, changing an NCL/shell script's `opath`/`ofile` requires updating every downstream
-consumer (including the notebook's `files{}` dict) to match.
+Each stage's output path is still consumed by the next stage's input path by construction (e.g.
+an NCL script's `opath` == the shell script's `DATADIR` == the notebook's `dpath0`) — changing
+where one stage writes still requires updating the next stage's read location to match. See
+"Path configuration" for how those base directories are set today.
+
+## Path configuration
+
+Base data directories (`SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`,
+`LIG_TIMESERIES_JS_DIR`) live in `config/paths.env` (gitignored; copy from
+`config/paths.env.example`):
+
+- `scripts/nco/*.sh` source it directly.
+- `scripts/ncl/*.ncl` read it via NCL's `getenv()` — `source config/paths.env` in your shell
+  before invoking `ncl`.
+- Notebooks read `WORK_DATA_DIR` via `os.environ.get('WORK_DATA_DIR', '/glade/work/dervlamk')`, so
+  they still work with no setup at all, defaulting to the original hardcoded path.
+
+Everything else (CESM case/file names, per-variable lists inside each script) is still hardcoded
+per script, matching the specific simulation each script was written for.
 
 ## Import pattern used in notebooks
 
@@ -85,18 +112,23 @@ from colorbar_funcs import *
 from data_funcs import *
 ```
 
-This only works if the notebook is run from the repo root (so `'.'` resolves there). When editing
-files in `scripts/py_functions/`, check both `data_funcs.py` (canonical version of helpers like
-`get_xy_coords`/`get_season`) and the near-duplicate definitions re-implemented locally in
-`line_plot_tools.py`/`plot_tools.py` — they are not shared via a single import and can drift.
+This only works if the notebook is run from the repo root (so `'.'` resolves there).
 
 ## Environment
 
 Notebooks run under a Jupyter kernel named `gcm_analysis` (see notebook metadata
-`kernelspec.name`). There is no `environment.yml`/`requirements.txt` in this repo; the kernel's
-package set (xarray, netCDF4, metpy, cartopy, cmocean, colorcet, seaborn, scipy) must already
-exist in that conda environment. NCL scripts require an NCL install with `NCARG_ROOT` set (loaded
-via `module load ncl` or similar on Casper/Derecho); shell scripts require `module load nco`.
+`kernelspec.name`). `environment.yml` mirrors that env (`conda env create -f environment.yml`).
+NCL scripts require an NCL install with `NCARG_ROOT` set (loaded via `module load ncl` or similar
+on Casper/Derecho, not conda-installable); shell scripts require `module load nco` (also handled
+by `environment.yml` via conda-forge's `nco`/`cdo` packages if you'd rather not rely on modules).
+
+## Repo tooling (not part of the science pipeline)
+
+`tools/strip_notebook_output.py` clears notebook cell outputs/execution counts; wired up as a git
+clean filter via `.gitattributes` (`*.ipynb filter=stripoutput`). Run `tools/setup_git_filters.sh`
+once per clone to register the filter locally (git filter config isn't versioned). This keeps
+embedded figure outputs out of git history — don't remove the filter setup without replacing it
+with something equivalent, or the notebooks will balloon back to multi-MB commits.
 
 ## Working with the notebooks
 
@@ -107,6 +139,5 @@ via `module load ncl` or similar on Casper/Derecho); shell scripts require `modu
   floor value substituted for near-zero denominators to avoid divide-by-zero.
 - Precipitation-weighted isotope averages are standard here: isotope ratios are weighted by each
   month's fraction of annual total precipitation before combining across months.
-- When editing a notebook, prefer editing it as JSON/via nbformat-aware tools rather than treating
-  it as plain text — these files are large and cell outputs (embedded images) make naive
-  text-diffing impractical.
+- When editing a notebook, use a notebook-aware tool (e.g. Claude Code's NotebookEdit) rather than
+  treating the file as plain text/JSON — the plain Edit tool refuses `.ipynb` files outright.

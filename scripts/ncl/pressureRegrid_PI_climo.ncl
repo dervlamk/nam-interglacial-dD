@@ -5,9 +5,9 @@ load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
 begin
 
-;dpath = "/glade/campaign/univ/uazn0018/jiangzhu/archive/b.e12.B1850C5.f19_g16.iPI.01/climo/"
-;filen = "b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc"
-all_files = systemfunc("ls ")
+dpath = getenv("PI_CLIMO_DIR")+"/" ; set PI_CLIMO_DIR in config/paths.env
+filen = "b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc"
+all_files = systemfunc("ls "+dpath+filen)
 data_clim = addfiles(all_files,"r")
 
 temp = data_clim[:]->T
@@ -31,7 +31,7 @@ uwindP = vinth2p(uwind(:,:,:,:),hyam,hybm,pnew,PS(:,:,:),interp,P0mb,1,extrap)
 
 ;======Write out netcdf file====
 
-opath = "/glade/scratch/dervlamk/PI/"
+opath = getenv("SCRATCH_DIR")+"/PI/" ; set SCRATCH_DIR in config/paths.env
 ofile = "atm.3d.vars.iCESM1pt2.PI.nc"
 pthNc = opath+ofile
 ncdf = addfile(pthNc,"c")

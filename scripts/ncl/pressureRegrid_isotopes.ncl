@@ -5,9 +5,9 @@ load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
 begin
 
-dpath = "/glade/campaign/univ/uazn0018/jiangzhu/archive/b.e12.B1850C5.f19_g16.iPI.01/climo/"
+dpath = getenv("PI_CLIMO_DIR")+"/" ; set PI_CLIMO_DIR in config/paths.env
 filen = "b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc"
-all_files = systemfunc("ls /glade/campaign/univ/uazn0018/jiangzhu/archive/b.e12.B1850C5.f19_g16.iPI.01/climo/b.e12.B1850C5.f19_g16.iPI.01.cam.h0.0801-0900.climo.nc")
+all_files = systemfunc("ls "+dpath+filen)
 data_clim = addfiles(all_files,"r")
 
 hdor = data_clim[:]->HDOR
@@ -39,7 +39,7 @@ h2olP = vinth2p(h2ol(:,:,:,:),hyai,hybi,pnew,PS(:,:,:),interp,P0mb,1,extrap)
 
 ;======Write out netcdf file====
 
-opath = "/glade/scratch/dervlamk/PI/"
+opath = getenv("SCRATCH_DIR")+"/PI/" ; set SCRATCH_DIR in config/paths.env
 ofile = "DH.isotopes.iCESM1pt2.PI.nc"
 pthNc = opath+ofile
 ncdf = addfile(pthNc,"c")

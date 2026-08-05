@@ -26,9 +26,7 @@ import colorcet as cc
 
 def plot_field(var, cmap=None, vmin=None, vmax=None, season='ann', mask=None, boundaries=None):    
     ## get var info
-    get_xy_coords(var) # get lat & lon coords without having to know coordinate names
-    lons = x
-    lats = y
+    lons, lats = get_xy_coords(var) # get lat & lon coords without having to know coordinate names
     mons = get_season(season=season) # index months to average over based on season var
     var_avg = var[mons].mean(dim='month', keep_attrs=True) # find seasonal or annual var mean
     

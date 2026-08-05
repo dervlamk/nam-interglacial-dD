@@ -18,46 +18,9 @@ import cmocean
 import cmocean.cm as cmo
 import colorcet as cc
 
+from data_funcs import *
 
 #############################
-
-
-def get_season(season='ann'):
-    """
-    This indexes which months to average over to derive an annual or seasonal mean
-        - can only be applied to monthly climatologies
-    """
-    mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    if season in ['ANNUAL', 'ANN', 'ann']:
-        mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    if season in ['DJF', 'djf']:
-        mons = [0, 1, 11]
-    if season in ['JJA', 'jja']:
-        mons = [5, 6, 7]
-    if season in ['JJAS', 'jjas']:
-        mons = [5, 6, 7, 8]
-    if season in ['JFM', 'jfm']:
-        mons = [0, 1, 2]
-    if season in ['JAS', 'jas']:
-        mons = [6, 7, 8]
-    if season==None:
-        mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    return mons
-
-####
-
-def get_xy_coords(var):
-    """
-    This extracts the lat and lon coordinates without having to know the specific coordinate names
-    """
-    if isinstance(var, xr.DataArray):
-        x = var.metpy.x
-        y = var.metpy.y
-        return(x,y)
-    if isinstance(var, xr.Dataset):
-        print('This is a dataset. Please use an xarray DataArray')
-
-###
 
 def weighted_global_mean_1d(var):
     """
