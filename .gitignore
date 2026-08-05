@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Editor swap/backup files
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS cruft
+.DS_Store
+
+# Local outputs / scratch (not meant to live in the repo)
+*.nc
+figures/

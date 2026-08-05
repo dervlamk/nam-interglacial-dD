@@ -1,0 +1,45 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
+
+begin
+
+;====== I/O ======
+;== input
+dpath = "/glade/campaign/cesm/development/palwg/LastInterglacial/iCESM1.2/b.e12.B1850C5.f19_g16.iLIG127k.001/atm/proc/tseries/month_1/"
+;== output
+opath = "/glade/derecho/scratch/dervlamk/LIG/"
+ofile = "atm.2d.vars.iLIG127k.tseries.nc"
+pthNc = opath+ofile
+ncdf = addfile(pthNc,"c")
+;== nc attributes
+fAtt = True
+fAtt@case = "b.e12.B1850C5.f19_g16.iLIG127k.001"
+fAtt@title = "2D Atmospheric Variables"
+fAtt@clim = "Simulation Years 401-500"
+fAtt@Conventions = "CF-1.0"
+fAtt@initial_file = "b.e12.B1850C5.f19_g16.iPI.01.cam.i.0901-01-01-00000.nc"
+fAtt@topography_file = "/glade/p/cesmdata/cseg/inputdata/atm/cam/topo/USGS-gtopo30_1.9x2.5_remap_c050602.nc"
+fAtt@creation_date = systemfunc("date")
+fileattdef(ncdf,fAtt)
+filedimdef(ncdf,"time",-1,True) ; makes time an unlimited dimension
+
+
+;======Concatenate variable data and create netcdf====
+vars = (/"PRECC", "PRECL", "TS", "LHFLX", "SHFLX", "TAUX", "TAUY", "CLDHGH", "CLDLOW"/) ; 2D vars 
+
+do n=0,8,1
+	varn = vars(n) ; variable name
+	all_files = systemfunc("cd "+dpath+"; ls b.e12.B1850C5.f19_g16.iLIG127k.001.cam.h0."+varn+".040101-045012.nc b.e12.B1850C5.f19_g16.iLIG127k.001.cam.h0."+varn+".045101-050012.nc") ; list files from last 100 years of sim for var
+	data_all = addfiles (dpath+all_files, "r") ; read var files
+	var = data_all[:]->$varn$ ; create variable
+	; var_monthly = clmMonTLL(var)
+
+	; write to netcdf
+	ncdf->$varn$ = var ; _monthly
+
+	end do
+  
+end
+
