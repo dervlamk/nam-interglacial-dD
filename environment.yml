@@ -28,3 +28,4 @@ dependencies:
   - ipykernel=6.29
   - nco=5.3      # command-line NCO tools used by scripts/*.sh
   - cdo=2.4       # command-line CDO tools
+  - openpyxl=3.1  # reads the proxy .xlsx records under $PROXY_DATA_DIR (proxy notebooks)

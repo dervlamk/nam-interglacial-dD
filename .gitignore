@@ -16,6 +16,18 @@ __pycache__/
 # Local outputs / scratch (not meant to live in the repo)
 *.nc
 figures/
+outputs/
+
+# MATLAB. .mat is a data format — the proxy pipeline's *_FAMEs_*.mat intermediates and the
+# old icesm_atm.mat model intermediates must never land here. *.asv are editor autosaves.
+*.mat
+*.asv
+slprj/
+
+# Proxy spreadsheets live on OneDrive ($PROXY_DATA_DIR) and are never copied into the repo.
+# Belt and braces in case one gets dragged in.
+*.xlsx
+*.xls
 
 # Local path overrides (copy config/paths.env.example to fill this in)
 config/paths.env
