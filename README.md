@@ -52,10 +52,19 @@ one that consumes it — see `CLAUDE.md` for the full file-by-file breakdown.
 
 ## Environment
 
-Notebooks run under a Jupyter kernel named `gcm_analysis`, using xarray, netCDF4, metpy, cartopy,
-cmocean, colorcet, seaborn, scipy, and pandas. NCL scripts require an NCL install
-(`module load ncl` or similar); the shell scripts require `module load nco`. This workflow assumes
-an NCAR HPC environment (Casper/Derecho) — paths are not portable elsewhere without editing.
+Notebooks run under a Jupyter kernel named `gcm_analysis`. Recreate it with:
+
+```bash
+conda env create -f environment.yml
+conda activate gcm_analysis
+python -m ipykernel install --user --name gcm_analysis
+```
+
+This installs xarray, netCDF4, metpy, cartopy, cmocean, colorcet, seaborn, scipy, pandas, and the
+command-line `nco`/`cdo` tools used by `scripts/*.sh`. NCL scripts additionally require a separate
+NCL install (`module load ncl` or similar on NCAR systems — NCL is not conda-installable here).
+This workflow assumes an NCAR HPC environment (Casper/Derecho) — paths are not portable elsewhere
+without editing.
 
 ## Running a notebook
 

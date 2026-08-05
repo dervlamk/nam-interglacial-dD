@@ -1,0 +1,30 @@
+# Mirrors the `gcm_analysis` conda environment used to run the notebooks in this repo
+# (on NCAR Casper/Derecho: /glade/work/dervlamk/conda-envs/gcm_analysis).
+#
+# Create with:
+#   conda env create -f environment.yml
+# or, faster:
+#   mamba env create -f environment.yml
+#
+# Versions are pinned to what the original environment used, without OS-specific
+# build hashes, so this resolves on platforms other than linux-64 as well.
+name: gcm_analysis
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=2.2
+  - scipy=1.15
+  - pandas=2.2
+  - matplotlib-base=3.10
+  - xarray=2025.3
+  - netcdf4=1.7
+  - metpy=1.6
+  - cartopy=0.24
+  - shapely=2.1
+  - cmocean=4.0
+  - colorcet=3.1
+  - seaborn=0.13
+  - ipykernel=6.29
+  - nco=5.3      # command-line NCO tools used by scripts/*.sh
+  - cdo=2.4       # command-line CDO tools
