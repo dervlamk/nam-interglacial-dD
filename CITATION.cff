@@ -1,0 +1,12 @@
+# TODO: this is a placeholder. Fill in `preferred-citation` (or replace this
+# whole file) once there's an associated publication -- title, full author
+# list, journal/venue, year, and DOI.
+cff-version: 1.2.0
+message: "If you use this code, please cite it as below."
+title: "nam-lastinterglacial"
+type: software
+url: "https://github.com/dervlamk/nam-lastinterglacial"
+authors:
+  - given-names: "Dervla"
+    family-names: "Meegan Kumar"
+    # TODO: verify name split above, add ORCID/affiliation if desired
