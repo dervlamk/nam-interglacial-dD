@@ -3,9 +3,9 @@
 # list, journal/venue, year, and DOI.
 cff-version: 1.2.0
 message: "If you use this code, please cite it as below."
-title: "nam-lastinterglacial"
+title: "nam-interglacial-dD"
 type: software
-url: "https://github.com/dervlamk/nam-lastinterglacial"
+url: "https://github.com/dervlamk/nam-interglacial-dD"
 authors:
   - given-names: "Dervla"
     family-names: "Meegan Kumar"

@@ -1,4 +1,4 @@
-# nam-lastinterglacial
+# nam-interglacial-dD
 
 Analysis of isotope-enabled CESM1.2 (iCESM1.2) paleoclimate simulations of the **Last Interglacial**
 (LIG, ~127 ka) and **Last Glacial Maximum** (LGM, ~21 ka), compared against a pre-industrial (PI)
