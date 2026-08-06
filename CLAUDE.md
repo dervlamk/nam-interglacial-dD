@@ -33,11 +33,6 @@ function by Donald Shea, and `ebisuzaki` implements a published method.
 
 > **Read `DATA_MANIFEST.md` before building on the proxy side.**
 >
-> **One known defect:** `fig3` mis-indexes the NH22P uncertainty band. It hardcodes
-> `iters = 1000` and applies those indices to both cores, but the NH22P `dDp` sheet is 1020
-> wide, so its upper 2σ bound is drawn at the 95.6th percentile instead of the 97.5th. The 1020
-> is a spreadsheet paste artifact — every stored `.mat` is exactly 1000 wide.
->
 > **Verified 2026-08-06:** the MATLAB pipeline was re-run from the reorganised tree and
 > reproduces the stored products. NH22P is bit-identical on every field including both Monte
 > Carlo ensembles; the DSDP-480/479 timeslice means reproduce
@@ -72,9 +67,10 @@ Re-run from the reorganised tree, they reproduce the stored products:
 MATLAB seeds its RNG identically each session, which is why bit-identical reproduction is
 achievable at all — a difference beyond ~0.3‰ means something real changed, not noise.
 
-**Still to do:** the `fig3` percentile fix, so the NH22P band is right when the figure is
-redrawn. Not urgent, and it does not invalidate current results — the timeslice means the CSV
-reports come from `dDraw` and are unaffected.
+**Optional hardening:** `fig3` hardcodes `iters = 1000` and derives its shading indices from it.
+That is correct now that both `dDp` sheets are 1000 wide, but
+`np.nanpercentile(dDp, [2.5, 16, 84, 97.5], axis=1)` would be correct at any width and remove
+the possibility of the two drifting apart again.
 
 If the ensembles are ever regenerated, paste them into `*_processed_dD*.xlsx` leaving `Sheet1`
 (the hand-entered GC-IRMS data) alone, re-run `fig3` to regenerate `data/processed/*.csv`, push,
@@ -110,10 +106,10 @@ their own files and repoint `fig3`. The paste is what produced the 1020-column e
 - **The DSDP-480/479 splice happens in MATLAB, not by hand** —
   `dDwax_data_processing_d480_d479.m` lines 96–118 concatenate d480 (143 samples) and d479 (33)
   and sort by age. The saved `Guay` struct is already the 147-sample composite.
-- **The 1020-member NH22P ensemble is a spreadsheet paste artifact.** Every stored `.mat` is
-  exactly 1000 wide; the 1020 exists only in `nh22p_processed_dD_handpicked.xlsx`. Twenty
-  columns were duplicated during the manual copy into Excel — which is the concrete argument for
-  having the MATLAB write the ensembles to their own files.
+- **The NH22P `dDp` sheet was 1020 wide until 2026-08-06** — twenty foreign columns ahead of the
+  canonical 1000, from the manual Excel paste. Trimmed; the sheet now equals
+  `nh22p_FAMEs_18-Apr-2025.mat` exactly. The concrete argument for having the MATLAB
+  `writematrix` the ensembles to their own files rather than pasting them by hand.
 - **The two live pipeline scripts read `config/paths.env`; the rest do not.**
   `dDwax_data_processing_{nh22p,d480_d479}.m` resolve `PROXY_DATA_DIR` from the environment and
   fall back to parsing the file directly — necessary because MATLAB launched from the Dock does

@@ -45,7 +45,7 @@ where silent drift lives, and the ensemble widths show it has already happened:
 
 | File | `Sheet1` rows | `dDp` members | `pJAS` members |
 |---|---|---|---|
-| NH22P handpicked | 118 | **1020** | 4000 |
+| NH22P handpicked | 118 | 1000 | 4000 |
 | NH22P autopicked | 97 | 1000 | 4000 |
 | DSDP-480/479 | 147 | 1000 | 4000 |
 
@@ -57,36 +57,31 @@ where silent drift lives, and the ensemble widths show it has already happened:
   `Guaymas_..._14-Apr-2025.mat` is 147 × 1000 + jas 147 × 4000; both match the sheets exactly).
   `dDp_epsilon_calculation.m`'s 2500-member `dDp_raw` output was never pasted in and is read by
   nothing. If you want 2500 downstream, change it in `dDwax_data_processing_*.m`.
-- **NH22P handpicked has 1020 members: a paste artifact, confirmed.** Every stored `.mat` is
-  exactly 1000 wide — there is no run anywhere that produced 1020. Twenty columns were
-  duplicated during the manual copy into Excel. This has a downstream consequence; see
-  "Percentile indexing" below.
+- **NH22P handpicked was 1020 wide until 2026-08-06 — a paste error, now fixed.** The canonical
+  1000-member ensemble sat in columns 21–1020; twenty foreign columns (real δD<sub>p</sub>
+  values, but from no run that matches any stored `.mat`) preceded it. Dropping the first twenty
+  leaves the sheet exactly equal to `nh22p_FAMEs_18-Apr-2025.mat`'s `dDp`. `Sheet1` and `pJAS`
+  were not touched. The pre-edit file is kept as
+  `nh22p_processed_dD_handpicked_PRE-COLTRIM-20260806.xlsx`.
 
 **Worth fixing:** keep the hand entry for `Sheet1` — that is legitimate — but stop pasting
 computed ensembles back into it. Have the MATLAB `writematrix` the `dDp`/`pJAS` ensembles to
 their own files and have `fig3` read `Sheet1` from the spreadsheet and the ensembles from those.
 The manual paste is what produced the 1020-column error.
 
-### 1b. Percentile indexing is wrong for NH22P in `fig3`
+### 1b. `fig3` percentile indexing
 
-`fig3_dDwax_timeseries.ipynb` hardcodes `iters = 1000` and derives the shading indices from it
-(`round(iters*0.025)`, `round(iters*0.975)`, …), then applies **the same indices to both cores**.
-DSDP-480/479 has 1000 members, so its bands are correct. NH22P has 1020, so its bands are not:
+`fig3_dDwax_timeseries.ipynb` hardcodes `iters = 1000`, derives its shading indices from it, and
+applies the same indices to both cores. That is **correct** now that both `dDp` sheets are 1000
+members wide.
 
-| Intended | Index used | Actual percentile of 1020 |
-|---|---|---|
-| 97.5th | 975 | **95.6th** |
-| 84th | 840 | 82.4th |
-| 16th | 160 | 15.7th |
-| 2.5th | 25 | 2.45th |
+It was wrong while the NH22P sheet was 1020: index 975 is the 97.5th percentile of 1000 but only
+the 95.6th of 1020, so that band was drawn too narrow at the top. Fixing the sheet fixed the
+figure; no code change was required.
 
-The upper 2σ bound is the worst case — it should be index 994. **The NH22P uncertainty envelope
-is drawn too narrow at the top**, asymmetrically, on the paper's main record figure. The effect
-is modest (a few tenths of a ‰) but systematic and affects only one of the two panels.
-
-**Fix:** derive the indices from the array's own width, or drop the index arithmetic and use
-`np.nanpercentile(dDp, [2.5, 16, 84, 97.5], axis=1)` — which is correct for any ensemble size
-and removes the failure mode entirely.
+Worth doing anyway as insurance against a recurrence:
+`np.nanpercentile(dDp, [2.5, 16, 84, 97.5], axis=1)` is correct at any ensemble width and
+removes the hardcoded `iters` entirely.
 
 ### 2. DSDP-480 age model — settled
 
