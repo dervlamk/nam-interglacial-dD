@@ -33,9 +33,10 @@ only. That is expected, not broken.
 > results, not just tidiness:
 > - `fig3` mis-indexes the NH22P uncertainty band — it hardcodes `iters = 1000` but that
 >   ensemble is 1020 wide, so the upper 2σ bound is the 95.6th percentile, not the 97.5th.
-> - The `dDp` ensembles stored in `*_processed_dD*.xlsx` have 1000 members, but
->   `dDp_epsilon_calculation.m` sets `iters = 2500` — they predate the current settings. Those
->   sheets are pasted in by hand; `Sheet1` beside them is legitimate hand-entered GC-IRMS data.
+> - **The published δD<sub>p</sub> numbers use a constant ε = −97‰, not the C3/C4 variable-ε
+>   method** the invariants section describes. And the two cores were processed differently —
+>   NH22P from `dDraw`, DSDP-480/479 from `dDivc`. See the boxed note under "Scientific
+>   invariants"; both are open decisions, not tidying.
 > - **The code and the stored data currently disagree about DSDP-480 ages.** The canonical age
 >   model is now `Bacon_runs/DSDP480/` (the run `fig2` plots) and the MATLAB has been repointed
 >   there, but nothing has been re-run — so every `*_FAMEs_*.mat`, the `dDp`/`pJAS` sheets, and
@@ -64,18 +65,51 @@ compare against the current published numbers and explain the differences.
 3. The `fig3` percentile fix, so the NH22P band is right when the figure is redrawn.
 
 Expect the timeslice means to move: item 1 alone shifts some sample ages by up to 2.8 kyr, and
-the timeslice windows are only 6–13 kyr wide. The regression test for any restructure is that
-`dDp_epsilon_calculation.m` still reproduces `nh22p_FAMEs_01-May-2025.mat` to within Monte Carlo
-noise.
+the timeslice windows are only 6–13 kyr wide.
+
+**What to actually run:** `dDwax_data_processing_nh22p.m` then
+`dDwax_data_processing_d480_d479.m`, both on the laptop — **not** `dDp_epsilon_calculation.m`,
+whose output nothing reads (see below). Then paste the new `dDp`/`pJAS` matrices into
+`*_processed_dD*.xlsx` (leaving `Sheet1`, the hand-entered GC-IRMS data, untouched), re-run
+`fig3` to regenerate `data/processed/*.csv`, and push. Only then does Casper pull and re-run its
+notebooks. The regression test for any restructure is that the 2024 pipeline still reproduces
+`nh22p_FAMEs_18-Apr-2025.mat` and `Guaymas_d480_d479_FAMEs_14-Apr-2025.mat` to within Monte
+Carlo noise.
+
+Better than repeating the manual paste: have the MATLAB `writematrix` the two ensembles to their
+own files and repoint `fig3`. The paste is what produced the 1020-column error.
 
 ### Known duplication and rough edges
 
-- **Two parallel MATLAB pipelines that overlap and write the same filename pattern.**
-  `dDp_epsilon_calculation.m` (2025) is the newer δD<sub>p</sub> implementation and the one last
-  run — the most recent outputs match its mtime. But `dDwax_data_processing_*.m` (2024) is the
-  *only* place Bacon age assignment and the %JAS regression exist end to end. Neither is a
-  superset. Target: four single-purpose stages (process → assign ages → dDp → %JAS) with
-  explicit inputs and outputs and no shared filename pattern.
+- **Two parallel MATLAB pipelines, and the newer one is not the one that matters.**
+  `dDwax_data_processing_{nh22p,d480_d479}.m` (2024) is the pipeline everything downstream
+  actually traces to. It runs end to end — raw δD → Bacon ages → ice-volume correction →
+  δD<sub>p</sub> Monte Carlo → %JAS regression → save — and it is the **only** place the age
+  assignment, the %JAS regression, and the DSDP-480/479 splice exist.
+
+  `dDp_epsilon_calculation.m` (2025) was run more recently, but its output is consumed by
+  nothing. Verified from the stored `.mat` dimensions:
+
+  | File | Contents | From |
+  |---|---|---|
+  | `nh22p_FAMEs_01-May-2025.mat` | `dDp_raw` (118 × **2500**) | `dDp_epsilon_calculation.m` |
+  | `nh22p_FAMEs_18-Apr-2025.mat` | `dDp` (118 × **1000**) + `jas` (118 × 4000) | `dDwax_data_processing_nh22p.m` |
+  | `Guaymas_..._14-Apr-2025.mat` | `dDp` (147 × **1000**) + `jas` (147 × 4000) | `dDwax_data_processing_d480_d479.m` |
+
+  The `dDp`/`pJAS` sheets in `*_processed_dD*.xlsx` — which `fig3` reads, which produce
+  `data/processed/*.csv`, which the model notebooks then compare against — are 1000 and 4000
+  wide at 118 and 147 rows. They came from the 2024 pipeline. **To regenerate anything the
+  figures use, run `dDwax_data_processing_*.m`, not `dDp_epsilon_calculation.m`.**
+
+  Neither is a superset of the other. Target: four single-purpose stages (process → assign ages
+  → dDp → %JAS) with explicit inputs and outputs and no shared filename pattern.
+- **The DSDP-480/479 splice happens in MATLAB, not by hand** —
+  `dDwax_data_processing_d480_d479.m` lines 96–118 concatenate d480 (143 samples) and d479 (33)
+  and sort by age. The saved `Guay` struct is already the 147-sample composite.
+- **The 1020-member NH22P ensemble is a spreadsheet paste artifact.** Every stored `.mat` is
+  exactly 1000 wide; the 1020 exists only in `nh22p_processed_dD_handpicked.xlsx`. Twenty
+  columns were duplicated during the manual copy into Excel — which is the concrete argument for
+  having the MATLAB write the ensembles to their own files.
 - **No MATLAB script reads `config/paths.env`.** Every one `cd`s to a hardcoded absolute path,
   and all of them are dead. `cd` is also not just a path problem — it mutates the working
   directory, so the scripts are order-dependent. Replace with a `paths.m` shim reading the same
@@ -169,9 +203,9 @@ Runs on the laptop only. Reads from `$PROXY_DATA_DIR` and `$OBS_DATA_DIR` (OneDr
 into the OneDrive proxy tree and the notebooks read those):
 
 1. `dDwax_data_processing_{nh22p,d480_d479}.m` — process raw δD<sub>C30</sub> measurements.
-2. `dDp_epsilon_calculation.m` — the live δD<sub>p</sub> calculation. 2500-iteration Monte
-   Carlo over C3/C4 endmembers → fraction C4 → apparent fractionation ε → δD<sub>p</sub>.
-   One `%%` section per core.
+2. `dDp_epsilon_calculation.m` — a δD<sub>p</sub>-only Monte Carlo (2500 iterations) over C3/C4
+   endmembers → fraction C4 → apparent fractionation ε → δD<sub>p</sub>. One `%%` section per
+   core. **Its output is a dead end — nothing downstream reads it.** See the note below.
 3. `pJAS_calculation.m` — Bayesian univariate regression (Gibbs, 10 chains × 1000 draws,
    first 200 discarded, thinned by 2, R̂ diagnostic) mapping δD<sub>p</sub> → %JAS rainfall.
    **Not self-contained** — expects `X` (%JAS) and `Y` (δD) already in the workspace.
@@ -183,11 +217,35 @@ instrumental-record helpers feeding the modern-climatology figure.
 
 ### Scientific invariants — deliberate, do not "correct" them
 
+> ### ⚠️ Two different ε models exist, and the published numbers use the simpler one
+>
+> | | `dDwax_data_processing_*.m` (2024) — **produced every published number** | `dDp_epsilon_calculation.m` (2025) — computed, never propagated |
+> |---|---|---|
+> | ε | **constant −97 ± 2.98‰** | **variable**, C3/C4 mixture per sample |
+> | Endmembers | C3 −81, C4 −113 (in a code comment) | Desert Museum: `c3dd −82 ± 1`, `c4dd −107.8 ± 3.7` |
+> | δ¹³C | not used at all | prescribed glacial/interglacial |
+> | `iters` | 1000 | 2500 |
+> | Input series | NH22P `dDraw`, **DSDP-480/479 `dDivc`** | both `dDraw` |
+>
+> The 2025 script is the methodological upgrade — vegetation-dependent ε driven by δ¹³C — but
+> its output was never pasted into the spreadsheets, so nothing downstream reflects it. **Which
+> method the paper uses is an open scientific decision, not a tidying question.**
+>
+> **The two cores were also processed inconsistently.** `dDwax_data_processing_nh22p.m:45` uses
+> `dDraw`; `dDwax_data_processing_d480_d479.m:86,89` use `dDivc`. So the two panels of the main
+> record figure are not on the same footing, and the comparison to iCESM (which carries the
+> ice-sheet effect, and so wants `dDraw`) holds for NH22P but not for DSDP-480/479. This looks
+> like an oversight rather than a choice — confirm before the rerun.
+
+The bullets below describe **`dDp_epsilon_calculation.m`**, the 2025 variable-ε method. They are
+deliberate choices within that script; they do not describe how the current published numbers
+were made.
+
 - **δD<sub>p</sub> is computed from raw δD<sub>C30</sub>, not the ice-volume-corrected series.**
-  In `dDp_epsilon_calculation.m` the `dDivc` line is commented out and `dDraw` is used. This is
-  intentional: it makes the proxy directly comparable to iCESM δD<sub>p</sub>, which already
-  contains the ice-sheet isotope effect. `dDivc` is still computed and stored, and is what the
-  `dDivc_timeseries` figure plots. Know which one a figure uses before changing anything.
+  The `dDivc` line is commented out and `dDraw` is used. This is intentional: it makes the proxy
+  directly comparable to iCESM δD<sub>p</sub>, which already contains the ice-sheet isotope
+  effect. `dDivc` is still computed and stored, and is what the `dDivc_timeseries` figure plots.
+  Know which one a figure uses before changing anything.
 - **δ¹³C is prescribed by climate state, not measured per sample** — glacial/interglacial means
   from Bhattacharya et al. (2018): −27.16‰ glacial, −26.67‰ interglacial, switched at
   18.5 / 115 / 130 ka.

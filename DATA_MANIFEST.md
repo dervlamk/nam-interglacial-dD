@@ -38,8 +38,8 @@ other two are *computed ensembles pasted in by hand*:
 | Sheet | Content | Origin |
 |---|---|---|
 | `Sheet1` | `age`, `dDraw`, `stdev`, `dDivc` | hand-compiled from GC-IRMS — **except `dDivc`**, which is computed by `icevolcorr` against LR04 |
-| `dDp` | (samples × ensemble) δD<sub>p</sub> | output of `scripts/matlab/dDp_epsilon_calculation.m`, pasted in |
-| `pJAS` | (samples × ensemble) %JAS | output of the Bayesian regression, pasted in |
+| `dDp` | (samples × ensemble) δD<sub>p</sub> | output of `scripts/matlab/dDwax_data_processing_*.m`, pasted in |
+| `pJAS` | (samples × ensemble) %JAS | output of the same script's Bayesian regression, pasted in |
 
 So the round trip is: spreadsheet → MATLAB → back into the same spreadsheet, by hand. That is
 where silent drift lives, and the ensemble widths show it has already happened:
@@ -52,12 +52,16 @@ where silent drift lives, and the ensemble widths show it has already happened:
 
 - **`pJAS` = 4000 everywhere is exactly right** and confirms provenance: `pJAS_calculation.m`
   runs 10 chains × 1000 draws, discards the first 200, and thins by 2 → 10 × 800 / 2 = 4000.
-- **`dDp` matches nothing.** `dDp_epsilon_calculation.m` sets `iters = 2500`. The stored
-  ensembles are 1000 (and 1020). They were produced by an earlier run and never refreshed after
-  `iters` changed.
-- **NH22P handpicked has 1020 members where everything else has 1000** — 20 columns wider than
-  its sibling, with no mechanism that would produce that. Most likely a paste that overshot.
-  This one has a downstream consequence; see "Percentile indexing" below.
+- **`dDp` = 1000 is correct for the script that actually produced it.** The sheets came from
+  `dDwax_data_processing_*.m`, which runs 1000 iterations — verified against the stored `.mat`
+  dimensions (`nh22p_FAMEs_18-Apr-2025.mat` is 118 × 1000 + jas 118 × 4000;
+  `Guaymas_..._14-Apr-2025.mat` is 147 × 1000 + jas 147 × 4000; both match the sheets exactly).
+  `dDp_epsilon_calculation.m`'s 2500-member `dDp_raw` output was never pasted in and is read by
+  nothing. If you want 2500 downstream, change it in `dDwax_data_processing_*.m`.
+- **NH22P handpicked has 1020 members: a paste artifact, confirmed.** Every stored `.mat` is
+  exactly 1000 wide — there is no run anywhere that produced 1020. Twenty columns were
+  duplicated during the manual copy into Excel. This has a downstream consequence; see
+  "Percentile indexing" below.
 
 **To resolve:** keep the hand entry for `Sheet1` — that is legitimate. But stop pasting computed
 ensembles back into it. Have the MATLAB write `dDp`/`pJAS` to their own files, and have `fig3`
@@ -202,10 +206,15 @@ outputs, not inputs, but they are the only record of what each pipeline run prod
 several figures load them *by explicit date*, which is how a figure silently ends up on stale
 data.
 
-Most recent, and matching the mtime of `dDp_epsilon_calculation.m` (2025-05-01):
+**The ones that matter** — these are what the `*_processed_dD*.xlsx` sheets were pasted from,
+so they are the provenance of every downstream number:
 
-- `NH22P/data/nh22p_FAMEs_01-May-2025.mat`
-- `DSDP-480-479/data/d480_FAMEs_01-May-2025.mat`
+- `NH22P/data/nh22p_FAMEs_18-Apr-2025.mat` — `dDp` 118 × 1000, `jas` 118 × 4000
+- `DSDP-480-479/data/Guaymas_d480_d479_FAMEs_14-Apr-2025.mat` — `dDp` 147 × 1000, `jas` 147 × 4000
+
+The newer `*_FAMEs_01-May-2025.mat` pair (from `dDp_epsilon_calculation.m`, `dDp_raw` at 2500
+members, per-core and unspliced) is **not** used by anything. Don't mistake the later date for
+currency.
 
 Variants that are **not** simple date bumps and need a decision:
 
