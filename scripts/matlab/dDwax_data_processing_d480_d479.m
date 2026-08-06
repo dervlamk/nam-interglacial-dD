@@ -14,24 +14,6 @@ close all; clear all; clc
 %   University of Arizona
 %   May 2022
 
-%% Which dD series feeds the Monte Carlo   [TEMPORARY — delete once verified]
-%  true  = dDivc, what this script used historically. Reproduces
-%          Guaymas_d480_d479_FAMEs_14-Apr-2025.mat (147 x 1000) exactly, which is the
-%          check that the reorganisation changed nothing.
-%  false = dDraw, the corrected choice: it puts this core on the same footing as
-%          dDwax_data_processing_nh22p.m, which has always used dDraw, and matches iCESM
-%          output, which already carries the ice-sheet isotope effect.
-%
-%  The age model is NOT part of this switch. Bacon_runs/DSDP480 is canonical and is now
-%  used unconditionally — the stored products were verified to have been built from it
-%  (they match its interpolated ages to 0.0000 ka; the superseded Bacon_runs_new run
-%  differs by up to 2.763 ka). It was the committed code that had drifted, not the data.
-%
-%  Run once with true to confirm the reproduction, then set false and delete this switch.
-%  It is the only remaining structural difference from the NH22P script.
-USE_DDIVC = false;
-
-
 %% Paths
 %  Resolved from config/paths.env — source it before launching MATLAB:
 %      source config/paths.env && matlab
@@ -103,7 +85,7 @@ end
 extern_dir = fullfile(repo_root, 'data', 'external');
 out_dir    = fullfile(repo_root, 'data', 'processed');
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
-fprintf('proxy_dir = %s   USE_DDIVC = %d\n', proxy_dir, USE_DDIVC);
+fprintf('proxy_dir = %s\n', proxy_dir);
 
 
 %% Load Data
@@ -174,14 +156,10 @@ ep     = -97;             %mean epsilon value (based on Tripti calculated offset
 epErr  = 2.98;            %weighted error
 iters  = 1000;
 
-% dDraw, not dDivc — see the switch at the top of this file. dDraw keeps this core on the
-% same footing as NH22P and matches iCESM output, which already carries the ice-sheet
-% isotope effect. dDivc is still computed and stored above either way.
-if USE_DDIVC
-    d480_in = d480.dDivc;   d479_in = d479.dDivc;
-else
-    d480_in = d480.dDraw;   d479_in = d479.dDraw;
-end
+% dDraw, not dDivc — matches dDwax_data_processing_nh22p.m, and matches iCESM output,
+% which already carries the ice-sheet isotope effect. dDivc is computed and stored above
+% either way.
+d480_in = d480.dDraw;   d479_in = d479.dDraw;
 
 % DSDP-480
 avgStDev  = median(d480.stdev,"omitnan");          %median analytical error
@@ -347,5 +325,4 @@ ylabel('%JAS')
 %% Save combined Guaymas data
 
 save(fullfile(out_dir, ['Guaymas_d480_d479_FAMEs_',date,'.mat']), 'Guay');
-fprintf('wrote %s  (USE_DDIVC = %d)\n', ...
-        fullfile(out_dir, ['Guaymas_d480_d479_FAMEs_',date,'.mat']), USE_DDIVC);
+fprintf('wrote %s\n', fullfile(out_dir, ['Guaymas_d480_d479_FAMEs_',date,'.mat']));

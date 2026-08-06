@@ -29,55 +29,65 @@ toolbox functions (`icevolcorr`, `ebisuzaki`, `longitude_flip`) that live in
 `~/Documents/MATLAB/toolbox/`, outside this repo. It is cloned there for provenance and editing
 only. That is expected, not broken.
 
-> **Read `DATA_MANIFEST.md` before building on the proxy side.** Three things there affect
-> results, not just tidiness:
+> **Read `DATA_MANIFEST.md` before building on the proxy side.**
+>
+> **Still open:**
 > - `fig3` mis-indexes the NH22P uncertainty band — it hardcodes `iters = 1000` but that
 >   ensemble is 1020 wide, so the upper 2σ bound is the 95.6th percentile, not the 97.5th.
-> - **The published δD<sub>p</sub> numbers use a constant ε = −97‰, not the C3/C4 variable-ε
->   method** the invariants section describes. And the two cores were processed differently —
->   NH22P from `dDraw`, DSDP-480/479 from `dDivc`. See the boxed note under "Scientific
->   invariants"; both are open decisions, not tidying.
-> - **The code and the stored data currently disagree about DSDP-480 ages.** The canonical age
->   model is now `Bacon_runs/DSDP480/` (the run `fig2` plots) and the MATLAB has been repointed
->   there, but nothing has been re-run — so every `*_FAMEs_*.mat`, the `dDp`/`pJAS` sheets, and
->   `data/processed/*.csv` still come from a different MCMC realization, off by up to 2,813 yr.
->   Downstream numbers are provisional until a rerun.
+>   The 1020 is a spreadsheet paste artifact; every stored `.mat` is exactly 1000 wide.
+> - **The published δD<sub>p</sub> numbers use a constant ε = −97 ± 2.98‰**, not the C3/C4
+>   variable-ε method described under "Scientific invariants". Which method the paper uses is
+>   an open scientific decision, not tidying.
 >
-> Don't paper over any of them by picking a file that happens to load, and don't re-run the
-> pipeline to "fix" the third on its own — see "The rerun" below; three corrections are meant to
-> land in one regeneration.
+> **Settled 2026-08-06 — do not re-raise these:** the MATLAB pipeline was re-run from the
+> reorganised tree and reproduces the stored products exactly. NH22P came back bit-identical on
+> every field including the Monte Carlo ensembles; the DSDP-480/479 timeslice means reproduce
+> `data/processed/timeslice_mean_proxy_dDraw.csv` to the last digit. Two claims made earlier
+> here were **backwards** — the committed code had drifted, the data was always right:
+> - the stored products were built from the **canonical** `Bacon_runs/DSDP480` age model
+>   (0.00000 ka), not the superseded run;
+> - both cores were built from **`dDraw`**; they were never processed inconsistently.
+>
+> One residual, pre-existing and harmless: d479 ages differ by ≤67 yr from every stored vintage
+> back to 2022, because `DSDP479_113_ages.txt` was re-run and `d479_FAMEs_*.mat` never
+> regenerated. Zero samples change timeslice membership.
 
 ## Outstanding cleanup
 
 Recorded here because it is not obvious from the code, and because doing these in the wrong
 order costs rework.
 
-### The rerun — do it once
+### The MATLAB pipeline — verified 2026-08-06
 
-Three corrections all change the same downstream products. Running them separately means three
-rounds of regenerated `.mat`, spreadsheets, CSVs and figures, and three chances to lose track of
-which numbers came from what. Make all three code changes first, then regenerate once, then
-compare against the current published numbers and explain the differences.
+`dDwax_data_processing_nh22p.m` then `dDwax_data_processing_d480_d479.m`, both on the laptop.
+**Not** `dDp_epsilon_calculation.m`, whose output nothing reads (see below). They read from
+`$PROXY_DATA_DIR` and write `*_FAMEs_<date>.mat` to `data/processed/`.
 
-1. The canonical DSDP-480 age model — **code already repointed**, stored products still lag.
-2. The δD<sub>p</sub> ensembles at the current `iters = 2500` — the stored ones are 1000/1020
-   members and predate the setting.
-3. The `fig3` percentile fix, so the NH22P band is right when the figure is redrawn.
+Re-run from the reorganised tree, they reproduce the stored products:
 
-Expect the timeslice means to move: item 1 alone shifts some sample ages by up to 2.8 kyr, and
-the timeslice windows are only 6–13 kyr wide.
+| | result |
+|---|---|
+| NH22P | **bit-identical** — `age`, `dDraw`, `stdev`, `dDivc`, and both Monte Carlo ensembles |
+| DSDP-480 ages | 0.00000 ka |
+| Guaymas `dDraw`, `stdev` | element-wise identical |
+| Guaymas timeslice means | reproduce the committed CSV to the last digit |
+| Guaymas `dDp` medians | 0.275‰ — the Monte Carlo floor (ε is one shared draw per iteration, so its median has SE ≈ 0.12‰) |
 
-**What to actually run:** `dDwax_data_processing_nh22p.m` then
-`dDwax_data_processing_d480_d479.m`, both on the laptop — **not** `dDp_epsilon_calculation.m`,
-whose output nothing reads (see below). Then paste the new `dDp`/`pJAS` matrices into
-`*_processed_dD*.xlsx` (leaving `Sheet1`, the hand-entered GC-IRMS data, untouched), re-run
-`fig3` to regenerate `data/processed/*.csv`, and push. Only then does Casper pull and re-run its
-notebooks. The regression test for any restructure is that the 2024 pipeline still reproduces
-`nh22p_FAMEs_18-Apr-2025.mat` and `Guaymas_d480_d479_FAMEs_14-Apr-2025.mat` to within Monte
-Carlo noise.
+MATLAB seeds its RNG identically each session, which is why bit-identical reproduction is
+achievable at all — a difference beyond ~0.3‰ means something real changed, not noise.
 
-Better than repeating the manual paste: have the MATLAB `writematrix` the two ensembles to their
-own files and repoint `fig3`. The paste is what produced the 1020-column error.
+**Still to do, and only these two:**
+
+1. The `fig3` percentile fix, so the NH22P band is right when the figure is redrawn.
+2. Decide the ε method — constant −97 ± 2.98‰ (what every published number uses) or the C3/C4
+   variable-ε of `dDp_epsilon_calculation.m`. A science decision, not tidying.
+
+Neither is urgent and neither invalidates current results. If the ensembles are regenerated,
+paste them into `*_processed_dD*.xlsx` leaving `Sheet1` (the hand-entered GC-IRMS data) alone,
+re-run `fig3` to regenerate `data/processed/*.csv`, push, and only then does Casper pull.
+
+Better than repeating that manual paste: have the MATLAB `writematrix` the two ensembles to
+their own files and repoint `fig3`. The paste is what produced the 1020-column error.
 
 ### Known duplication and rough edges
 
@@ -225,17 +235,18 @@ instrumental-record helpers feeding the modern-climatology figure.
 > | Endmembers | C3 −81, C4 −113 (in a code comment) | Desert Museum: `c3dd −82 ± 1`, `c4dd −107.8 ± 3.7` |
 > | δ¹³C | not used at all | prescribed glacial/interglacial |
 > | `iters` | 1000 | 2500 |
-> | Input series | NH22P `dDraw`, **DSDP-480/479 `dDivc`** | both `dDraw` |
+> | Input series | both `dDraw` | both `dDraw` |
 >
 > The 2025 script is the methodological upgrade — vegetation-dependent ε driven by δ¹³C — but
 > its output was never pasted into the spreadsheets, so nothing downstream reflects it. **Which
 > method the paper uses is an open scientific decision, not a tidying question.**
 >
-> **The two cores were also processed inconsistently.** `dDwax_data_processing_nh22p.m:45` uses
-> `dDraw`; `dDwax_data_processing_d480_d479.m:86,89` use `dDivc`. So the two panels of the main
-> record figure are not on the same footing, and the comparison to iCESM (which carries the
-> ice-sheet effect, and so wants `dDraw`) holds for NH22P but not for DSDP-480/479. This looks
-> like an oversight rather than a choice — confirm before the rerun.
+> **Both cores use `dDraw`, and always did** (verified 2026-08-06 by inverting the stored
+> `dDp` to recover its input: implied median ε = −97.096 with 0.095 spread under `dDraw`, versus
+> −101.091 with 2.0 spread under `dDivc`; the tight spread is the signature of the single shared
+> ε draw per iteration). An earlier note here claimed DSDP-480/479 used `dDivc` — that was true
+> of the committed source, which had drifted, but never of the data. Both scripts now read
+> `dDraw` explicitly.
 
 The bullets below describe **`dDp_epsilon_calculation.m`**, the 2025 variable-ε method. They are
 deliberate choices within that script; they do not describe how the current published numbers

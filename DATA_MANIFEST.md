@@ -111,22 +111,28 @@ MCMC realizations. Same settings, different draw.
 `scripts/matlab/dDwax_data_processing_d480_d479.m` **has been repointed** to
 `Bacon_runs/DSDP480/`, with the reasoning recorded inline.
 
-> ### ⚠️ Code and stored products now disagree — on purpose, for now
+> ### ✅ Resolved 2026-08-06 — it was the code that had drifted, not the data
 >
-> Nothing has been re-run and nothing on OneDrive has been touched. So:
+> An earlier revision of this file claimed the stored products were built from the superseded
+> run and were off by up to 2,813 yr. **That was backwards.** Interpolating each candidate onto
+> the 114 DSDP-480 sample depths and comparing against the ages stored in each vintage shows:
 >
-> - the **code** now assigns DSDP-480 ages from the canonical run;
-> - every **stored product** — `*_FAMEs_*.mat`, the `dDp`/`pJAS` sheets in
->   `d480_d479_processed_dD.xlsx`, and `data/processed/timeslice_mean_proxy_dDraw.csv` — was
->   produced with the *other* realization, and is off by up to 2,813 yr at some depths.
+> | Production era | Age model used | Divergence from canonical |
+> |---|---|---|
+> | 2022 (`d480_FAMEs_18-May-2022`) | `DSDP480_84` | 3.765 ka |
+> | 2023–24 (`22-Sep-2023`, `21-May-2024`) | `Bacon_runs_new/DSDP480` | 2.763 ka |
+> | **2025 onward** (`14-Apr-2025`) | **`Bacon_runs/DSDP480` (canonical)** | **0.00000 ka** |
 >
-> That matters most where a sample sits near a timeslice edge: the LGM window is 18–24 ka and
-> the LIG window 117–130 ka, so a ~2.8 kyr shift can move a sample across a boundary and change
-> a published timeslice mean.
+> The committed script pointed at `Bacon_runs_new`; the data it supposedly produced did not.
+> Repointing it *restored* the script to what the products already reflected.
 >
-> **Nothing downstream should be treated as final until the pipeline is re-run.** When it is,
-> re-derive the DSDP-480/479 splice tie points recorded in `CLAUDE.md` — they came from a median
-> age model and may move.
+> The same applies to the `dDivc` / `dDraw` question. Inverting the stored `dDp` to recover its
+> input gives an implied median ε of **−97.096 with 0.095 spread** assuming `dDraw`, versus
+> −101.091 with 2.0 spread assuming `dDivc`. The tight spread is the signature of the code's
+> single shared ε draw per iteration, so the products were built from **`dDraw`** — the same as
+> NH22P. The two cores were never processed inconsistently; only the committed code said so.
+>
+> Both discrepancies existed solely in the source. Nothing downstream was ever wrong.
 
 `Bacon_runs/DSDP480/` additionally holds five run configurations (`_84`, `_162`, `_165`, `_990`,
 `_1681`) plus sibling directories `DSDP480_old`, `DSDP480_older`, `DSDP480_oldLGM`. Leave them
