@@ -25,28 +25,24 @@ receive proxy numbers, which is why those CSVs are tracked. Paths for both halve
 lists) is still hand-edited per script.
 
 **The MATLAB code in `scripts/matlab/` cannot run on Casper** — it needs a local MATLAB plus
-toolbox functions (`icevolcorr`, `ebisuzaki`, `longitude_flip`) that live in
-`~/Documents/MATLAB/toolbox/`, outside this repo. It is cloned there for provenance and editing
-only. That is expected, not broken.
+four toolbox functions that live in `~/Documents/MATLAB/toolbox/`, outside this repo:
+`icevolcorr`, `ebisuzaki`, `longitude_flip`, `shadedErrorBar3`. It is cloned to Casper for
+provenance and editing only. That is expected, not broken. Vendoring those four into the repo
+would make it self-contained; check redistribution first — `longitude_flip` is a port of an NCL
+function by Donald Shea, and `ebisuzaki` implements a published method.
 
 > **Read `DATA_MANIFEST.md` before building on the proxy side.**
 >
-> **Still open:**
-> - `fig3` mis-indexes the NH22P uncertainty band — it hardcodes `iters = 1000` but that
->   ensemble is 1020 wide, so the upper 2σ bound is the 95.6th percentile, not the 97.5th.
->   The 1020 is a spreadsheet paste artifact; every stored `.mat` is exactly 1000 wide.
-> - **The published δD<sub>p</sub> numbers use a constant ε = −97 ± 2.98‰**, not the C3/C4
->   variable-ε method described under "Scientific invariants". Which method the paper uses is
->   an open scientific decision, not tidying.
+> **One known defect:** `fig3` mis-indexes the NH22P uncertainty band. It hardcodes
+> `iters = 1000` and applies those indices to both cores, but the NH22P `dDp` sheet is 1020
+> wide, so its upper 2σ bound is drawn at the 95.6th percentile instead of the 97.5th. The 1020
+> is a spreadsheet paste artifact — every stored `.mat` is exactly 1000 wide.
 >
-> **Settled 2026-08-06 — do not re-raise these:** the MATLAB pipeline was re-run from the
-> reorganised tree and reproduces the stored products exactly. NH22P came back bit-identical on
-> every field including the Monte Carlo ensembles; the DSDP-480/479 timeslice means reproduce
-> `data/processed/timeslice_mean_proxy_dDraw.csv` to the last digit. Two claims made earlier
-> here were **backwards** — the committed code had drifted, the data was always right:
-> - the stored products were built from the **canonical** `Bacon_runs/DSDP480` age model
->   (0.00000 ka), not the superseded run;
-> - both cores were built from **`dDraw`**; they were never processed inconsistently.
+> **Verified 2026-08-06:** the MATLAB pipeline was re-run from the reorganised tree and
+> reproduces the stored products. NH22P is bit-identical on every field including both Monte
+> Carlo ensembles; the DSDP-480/479 timeslice means reproduce
+> `data/processed/timeslice_mean_proxy_dDraw.csv` to the last digit. Both cores are built from
+> `dDraw` and from the canonical `Bacon_runs/DSDP480` age model.
 >
 > One residual, pre-existing and harmless: d479 ages differ by ≤67 yr from every stored vintage
 > back to 2022, because `DSDP479_113_ages.txt` was re-run and `d479_FAMEs_*.mat` never
@@ -76,15 +72,13 @@ Re-run from the reorganised tree, they reproduce the stored products:
 MATLAB seeds its RNG identically each session, which is why bit-identical reproduction is
 achievable at all — a difference beyond ~0.3‰ means something real changed, not noise.
 
-**Still to do, and only these two:**
+**Still to do:** the `fig3` percentile fix, so the NH22P band is right when the figure is
+redrawn. Not urgent, and it does not invalidate current results — the timeslice means the CSV
+reports come from `dDraw` and are unaffected.
 
-1. The `fig3` percentile fix, so the NH22P band is right when the figure is redrawn.
-2. Decide the ε method — constant −97 ± 2.98‰ (what every published number uses) or the C3/C4
-   variable-ε of `dDp_epsilon_calculation.m`. A science decision, not tidying.
-
-Neither is urgent and neither invalidates current results. If the ensembles are regenerated,
-paste them into `*_processed_dD*.xlsx` leaving `Sheet1` (the hand-entered GC-IRMS data) alone,
-re-run `fig3` to regenerate `data/processed/*.csv`, push, and only then does Casper pull.
+If the ensembles are ever regenerated, paste them into `*_processed_dD*.xlsx` leaving `Sheet1`
+(the hand-entered GC-IRMS data) alone, re-run `fig3` to regenerate `data/processed/*.csv`, push,
+and only then does Casper pull.
 
 Better than repeating that manual paste: have the MATLAB `writematrix` the two ensembles to
 their own files and repoint `fig3`. The paste is what produced the 1020-column error.
@@ -120,10 +114,14 @@ their own files and repoint `fig3`. The paste is what produced the 1020-column e
   exactly 1000 wide; the 1020 exists only in `nh22p_processed_dD_handpicked.xlsx`. Twenty
   columns were duplicated during the manual copy into Excel — which is the concrete argument for
   having the MATLAB write the ensembles to their own files.
-- **No MATLAB script reads `config/paths.env`.** Every one `cd`s to a hardcoded absolute path,
-  and all of them are dead. `cd` is also not just a path problem — it mutates the working
-  directory, so the scripts are order-dependent. Replace with a `paths.m` shim reading the same
-  env vars the NCL and NCO scripts use.
+- **The two live pipeline scripts read `config/paths.env`; the rest do not.**
+  `dDwax_data_processing_{nh22p,d480_d479}.m` resolve `PROXY_DATA_DIR` from the environment and
+  fall back to parsing the file directly — necessary because MATLAB launched from the Dock does
+  not inherit the shell environment. They use no `cd`. The remaining `.m` files
+  (`dDp_epsilon_calculation.m`, `pJAS_calculation.m`, `SST_dD_correlation.m`, and the two
+  `swna`/Tucson helpers) still `cd` to hardcoded absolute paths, all of which are dead. `cd` is
+  not only a path problem — it mutates the working directory, making the scripts
+  order-dependent.
 - **`pJAS_calculation.m` is not self-contained** — it expects `X` and `Y` to already exist in the
   workspace, so it silently uses whatever is lying around if the precondition is wrong. Make it
   a function.
@@ -227,30 +225,15 @@ instrumental-record helpers feeding the modern-climatology figure.
 
 ### Scientific invariants — deliberate, do not "correct" them
 
-> ### ⚠️ Two different ε models exist, and the published numbers use the simpler one
->
-> | | `dDwax_data_processing_*.m` (2024) — **produced every published number** | `dDp_epsilon_calculation.m` (2025) — computed, never propagated |
-> |---|---|---|
-> | ε | **constant −97 ± 2.98‰** | **variable**, C3/C4 mixture per sample |
-> | Endmembers | C3 −81, C4 −113 (in a code comment) | Desert Museum: `c3dd −82 ± 1`, `c4dd −107.8 ± 3.7` |
-> | δ¹³C | not used at all | prescribed glacial/interglacial |
-> | `iters` | 1000 | 2500 |
-> | Input series | both `dDraw` | both `dDraw` |
->
-> The 2025 script is the methodological upgrade — vegetation-dependent ε driven by δ¹³C — but
-> its output was never pasted into the spreadsheets, so nothing downstream reflects it. **Which
-> method the paper uses is an open scientific decision, not a tidying question.**
->
-> **Both cores use `dDraw`, and always did** (verified 2026-08-06 by inverting the stored
-> `dDp` to recover its input: implied median ε = −97.096 with 0.095 spread under `dDraw`, versus
-> −101.091 with 2.0 spread under `dDivc`; the tight spread is the signature of the single shared
-> ε draw per iteration). An earlier note here claimed DSDP-480/479 used `dDivc` — that was true
-> of the committed source, which had drifted, but never of the data. Both scripts now read
-> `dDraw` explicitly.
+**The ε method is settled: a constant ε = −97 ± 2.98‰**, applied as one shared draw per Monte
+Carlo iteration across all samples. That is what `dDwax_data_processing_{nh22p,d480_d479}.m` do
+and what every published number reflects. Both cores use `dDraw` as the input series.
 
-The bullets below describe **`dDp_epsilon_calculation.m`**, the 2025 variable-ε method. They are
-deliberate choices within that script; they do not describe how the current published numbers
-were made.
+`src/deprecated/`-bound `dDp_epsilon_calculation.m` implements an alternative — a per-sample
+variable ε derived from a C3/C4 mixture driven by prescribed δ¹³C, with Desert Museum
+endmembers and `iters = 2500`. It was never adopted: its output was never propagated into the
+spreadsheets and is read by nothing. The bullets below document its parameters for provenance
+only; **they do not describe the live pipeline.**
 
 - **δD<sub>p</sub> is computed from raw δD<sub>C30</sub>, not the ice-volume-corrected series.**
   The `dDivc` line is commented out and `dDraw` is used. This is intentional: it makes the proxy

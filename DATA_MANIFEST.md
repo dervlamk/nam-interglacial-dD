@@ -3,9 +3,9 @@
 Every external dataset this repo consumes, where it actually lives today, which code reads it,
 and **how confident we are that it is the canonical copy.**
 
-Written 2026-08-05, after gathering the analysis code from four scattered locations. Several
-entries are unresolved; those are the point of this file. Fix them by editing this file, not by
-guessing in code.
+Written 2026-08-05 after gathering the analysis code from four scattered locations; verified
+against a full pipeline rerun 2026-08-06. Where an entry is still uncertain that is stated
+explicitly. Resolve uncertainties by editing this file, not by guessing in code.
 
 Confidence legend:
 
@@ -19,14 +19,13 @@ Paths are relative to the env vars in `config/paths.env` (`$PROXY_DATA_DIR`, `$O
 
 ---
 
-## ❌ The two blocking problems
+## Provenance of the proxy inputs
 
-### 1. ~~`fig3`'s primary inputs have no producer~~ — RESOLVED, with a caveat
+### 1. `fig3`'s inputs are hand-entered GC-IRMS data
 
-**Answered 2026-08-05: `nh22p_processed_dD_handpicked.xlsx` and `d480_d479_processed_dD.xlsx`
-were hand-generated from GC-IRMS output.** They are *primary data entry*, not derived products —
-upstream of the MATLAB pipeline, not downstream of it. There is correctly no script that
-produces them, and none should be written.
+`nh22p_processed_dD_handpicked.xlsx` and `d480_d479_processed_dD.xlsx` were **hand-generated
+from GC-IRMS output**. They are primary data entry, upstream of the MATLAB pipeline rather than
+downstream of it. No script produces them and none should be written.
 
 `handpicked` vs `autopicked` refers to how the chromatographic peaks were integrated — manual
 versus software peak-picking of the GC-IRMS traces. `fig3` uses **handpicked**; that is a
@@ -63,10 +62,10 @@ where silent drift lives, and the ensemble widths show it has already happened:
   duplicated during the manual copy into Excel. This has a downstream consequence; see
   "Percentile indexing" below.
 
-**To resolve:** keep the hand entry for `Sheet1` — that is legitimate. But stop pasting computed
-ensembles back into it. Have the MATLAB write `dDp`/`pJAS` to their own files, and have `fig3`
-read `Sheet1` from the spreadsheet and the ensembles from those. Then regenerate both ensembles
-with the current `iters`.
+**Worth fixing:** keep the hand entry for `Sheet1` — that is legitimate — but stop pasting
+computed ensembles back into it. Have the MATLAB `writematrix` the `dDp`/`pJAS` ensembles to
+their own files and have `fig3` read `Sheet1` from the spreadsheet and the ensembles from those.
+The manual paste is what produced the 1020-column error.
 
 ### 1b. Percentile indexing is wrong for NH22P in `fig3`
 
@@ -89,91 +88,34 @@ is modest (a few tenths of a ‰) but systematic and affects only one of the two
 `np.nanpercentile(dDp, [2.5, 16, 84, 97.5], axis=1)` — which is correct for any ensemble size
 and removes the failure mode entirely.
 
-### 2. ~~Three different DSDP-480 age models~~ — RESOLVED, but the stored products still lag
+### 2. DSDP-480 age model — settled
 
-**Decided 2026-08-05: the age model used by the age-model figure is canonical.** That is
-`Bacon_runs/DSDP480/DSDP480_mcmc_new.csv`, read by `fig2_dsdp480-479_agemodel.ipynb`.
+The canonical age model is **`Bacon_runs/DSDP480`**: `DSDP480_165_ages.txt` for the MATLAB
+pipeline, `DSDP480_mcmc_new.csv` for `fig2_dsdp480-479_agemodel.ipynb`. The two are consistent
+— the CSV's column medians match the ages file to 0.3 yr (rounding).
 
-Its matching median summary was identified empirically rather than by filename. Comparing each
-candidate's `median` column against the column-wise medians of that MCMC ensemble, over the 151
-unique sample depths (`sample_depths_480.xlsx` contains 152 entries with depth 2390 duplicated,
-which `fig2` drops):
+Every stored product from April 2025 onward was built from it, confirmed by interpolating each
+candidate onto the 114 DSDP-480 sample depths and comparing against the ages actually stored:
 
-| Candidate | Agreement with the canonical ensemble |
-|---|---|
-| **`Bacon_runs/DSDP480/DSDP480_165_ages.txt`** | **0.3 yr mean, 0.5 yr max** — rounding only. This is its summary. |
-| `Bacon_runs_new/DSDP480/DSDP480_165_ages.txt` | 671 yr mean, **2,813 yr max** |
-| `Bacon_runs/DSDP480/DSDP480_84_ages.txt` | 1,359 yr mean, 3,853 yr max |
+| Production era | Age model | Divergence from canonical |
+|---|---|---|
+| 2022 (`d480_FAMEs_18-May-2022`) | `DSDP480_84` | 3.765 ka |
+| 2023–24 (`22-Sep-2023`, `21-May-2024`) | `Bacon_runs_new/DSDP480` | 2.763 ka |
+| **2025 onward** (`14-Apr-2025`, 2026-08 rerun) | **`Bacon_runs/DSDP480`** | **0.00000 ka** |
 
-The two `_165` files are the same Bacon configuration — identical 151-depth grid — but different
-MCMC realizations. Same settings, different draw.
+Superseded runs have been moved to `Bacon_runs/DSDP480_superseded/`, which carries a README with
+this lineage. `Bacon_runs/DSDP480/` now holds one age model and one only.
 
-`scripts/matlab/dDwax_data_processing_d480_d479.m` **has been repointed** to
-`Bacon_runs/DSDP480/`, with the reasoning recorded inline.
+`Bacon_runs/DSDP480_oldLGM/` was deliberately left in place: it is a complete run with different
+**LGM tie points**, diverging by 1.000 ka — an alternative hypothesis, not a stale version.
 
-> ### ✅ Resolved 2026-08-06 — it was the code that had drifted, not the data
->
-> An earlier revision of this file claimed the stored products were built from the superseded
-> run and were off by up to 2,813 yr. **That was backwards.** Interpolating each candidate onto
-> the 114 DSDP-480 sample depths and comparing against the ages stored in each vintage shows:
->
-> | Production era | Age model used | Divergence from canonical |
-> |---|---|---|
-> | 2022 (`d480_FAMEs_18-May-2022`) | `DSDP480_84` | 3.765 ka |
-> | 2023–24 (`22-Sep-2023`, `21-May-2024`) | `Bacon_runs_new/DSDP480` | 2.763 ka |
-> | **2025 onward** (`14-Apr-2025`) | **`Bacon_runs/DSDP480` (canonical)** | **0.00000 ka** |
->
-> The committed script pointed at `Bacon_runs_new`; the data it supposedly produced did not.
-> Repointing it *restored* the script to what the products already reflected.
->
-> The same applies to the `dDivc` / `dDraw` question. Inverting the stored `dDp` to recover its
-> input gives an implied median ε of **−97.096 with 0.095 spread** assuming `dDraw`, versus
-> −101.091 with 2.0 spread assuming `dDivc`. The tight spread is the signature of the code's
-> single shared ε draw per iteration, so the products were built from **`dDraw`** — the same as
-> NH22P. The two cores were never processed inconsistently; only the committed code said so.
->
-> Both discrepancies existed solely in the source. Nothing downstream was ever wrong.
-
-`Bacon_runs/DSDP480/` additionally holds five run configurations (`_84`, `_162`, `_165`, `_990`,
-`_1681`) plus sibling directories `DSDP480_old`, `DSDP480_older`, `DSDP480_oldLGM`. Leave them
-where they are; the canonical one is now identified, which is what mattered.
+**Why this needed pinning down:** three of the seven candidates diverge from canonical by less
+than 3 ka. That is small enough to look like noise on a plot and large enough to move samples
+between timeslices. Filename, section count, directory and modification date are all
+insufficient to tell them apart — several share them. Only the interpolated ages distinguish
+them.
 
 **DSDP-479 has no such problem** — one run (`_113`), one MCMC file, unambiguous.
-
-<details><summary>Original write-up of the ambiguity (superseded)</summary>
-
-All three files are 3999 rows and all three have **different checksums**:
-
-| File | md5 (first 8) | Read by |
-|---|---|---|
-| `Bacon_runs/DSDP480/DSDP480_mcmc_new.csv` | `3acd3755` | **`fig2_dsdp480-479_agemodel.ipynb`** — the published age-model figure |
-| `Bacon_runs/DSDP480/DSDP480_mcmc.csv` | `43eab0a9` | nothing currently |
-| `Bacon_runs_new/DSDP480/dsdp480_mcmc.csv` | `ed934075` | nothing currently |
-
-Worse, the *ages* file exists twice under the same name with different content:
-
-| File | md5 (first 8) | Read by |
-|---|---|---|
-| `Bacon_runs/DSDP480/DSDP480_165_ages.txt` | `17154bb1` | nothing currently |
-| `Bacon_runs_new/DSDP480/DSDP480_165_ages.txt` | `59059ab9` | **`scripts/matlab/dDwax_data_processing_d480_d479.m`** |
-
-So the age-depth model **plotted** in fig2 comes from `Bacon_runs/`, while the ages **assigned
-to the δD samples** come from `Bacon_runs_new/`. They are demonstrably not the same run. Either
-the figure or the data is on the wrong age model, unless the two happen to agree — which the
-checksums say they do not.
-
-`Bacon_runs/DSDP480/` additionally holds five run configurations (`_84`, `_162`, `_165`,
-`_990`, `_1681`) plus sibling directories `DSDP480_old`, `DSDP480_older`, `DSDP480_oldLGM`.
-
-**To resolve:** decide which Bacon run is canonical for DSDP-480, point both consumers at it,
-and move the rest into an `superseded/` subdirectory on OneDrive. Note the splice tie points in
-`CLAUDE.md` were derived from *a* median age model — re-derive them once the canonical run is
-fixed.
-
-**DSDP-479 has no such problem** — one run (`_113`), one MCMC file, unambiguous.
-
-</details>
-
 ---
 
 ## Where the data lives
