@@ -44,7 +44,7 @@ iCESM output.
 ### `processed/`
 `timeslice_mean_proxy_dDraw.csv` and `timeslice_mean_proxy_dD.csv` — **tracked**, because they
 are how the Casper clone receives proxy numbers without any raw proxy data crossing to `/glade`.
-Read `proxy_data/README.md` for their provenance and the ε caveat: use `dDraw`; the other came
+Read `data/processed/README.md` for their provenance and the ε caveat: use `dDraw`; the other came
 from a cell its author disabled.
 
 ## What is currently populated

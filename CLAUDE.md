@@ -19,7 +19,7 @@ top-level Jupyter notebooks and the figures they produce.
 
 **Neither machine has all the data, and that is deliberate.** iCESM output is never copied off
 `/glade`; proxy and observational data is never copied onto it. Only small derived products
-cross, and they cross *through this repo* — `proxy_data/*.csv` is how the model notebooks
+cross, and they cross *through this repo* — `data/processed/*.csv` is how the model notebooks
 receive proxy numbers, which is why those CSVs are tracked. Paths for both halves come from
 `config/paths.env` (see "Path configuration"); everything else (case names, per-file variable
 lists) is still hand-edited per script.
@@ -39,7 +39,7 @@ only. That is expected, not broken.
 > - **The code and the stored data currently disagree about DSDP-480 ages.** The canonical age
 >   model is now `Bacon_runs/DSDP480/` (the run `fig2` plots) and the MATLAB has been repointed
 >   there, but nothing has been re-run — so every `*_FAMEs_*.mat`, the `dDp`/`pJAS` sheets, and
->   `proxy_data/*.csv` still come from a different MCMC realization, off by up to 2,813 yr.
+>   `data/processed/*.csv` still come from a different MCMC realization, off by up to 2,813 yr.
 >   Downstream numbers are provisional until a rerun.
 >
 > Don't paper over any of them by picking a file that happens to load, and don't re-run the
@@ -89,10 +89,10 @@ only. That is expected, not broken.
 - `scripts/nco/` — NCO (`ncks`/`ncap2`) wrappers for isotope post-processing (extracting isotope
   tracer variables, integrating isotope ratios over levels). Require `module load nco`; source
   `config/paths.env` themselves (fail with an explicit error if it doesn't exist yet).
-- `proxy_data/*.csv` — timeslice-mean proxy δD records (Holocene, LGM, LIG) by core, with lon/lat
+- `data/processed/*.csv` — timeslice-mean proxy δD records (Holocene, LGM, LIG) by core, with lon/lat
   and 1-sigma error, used in the notebooks to validate model output against real-world records.
   Only `timeslice_mean_proxy_dDraw.csv` is actually read by the notebooks — that is correct;
-  the other file came from a cell its author disabled. `proxy_data/README.md` documents the
+  the other file came from a cell its author disabled. `data/processed/README.md` documents the
   provenance of both, the ε offset between them, and the caveat about anomaly cancellation.
 - `scripts/matlab/` — the proxy pipeline (laptop only). See "The proxy half" above.
 - `fig1_swna_modern_climate.ipynb`, `fig2_dsdp480-479_agemodel.ipynb`,
@@ -144,7 +144,7 @@ instrumental-record helpers feeding the modern-climatology figure.
 - **Ensembles are carried, not collapsed.** δD<sub>p</sub> and %JAS are `(age × ensemble)`
   arrays; bands are percentiles of the *sorted* ensemble (2.5/97.5 for 2σ, 16/84 for 1σ) and
   the central line is the **median**, not the mean. Bacon age models are the same shape.
-- **Timeslice windows differ between figures on purpose** — see `proxy_data/README.md`. The
+- **Timeslice windows differ between figures on purpose** — see `data/processed/README.md`. The
   CSV exports use Holocene 0–4, LGM 18–24, LIG 117–130, PGM 135–150 ka; `fig3`'s interglacial
   bands are HOL 0–11.7, LIG 117–130; the MATLAB box plots use Holocene <11.7, LGM 11.7–27.
   Do not unify them.
@@ -162,7 +162,7 @@ instrumental-record helpers feeding the modern-climatology figure.
 4. `scripts/nco/*.sh` scripts extract/derive isotope-related variables from climo files.
 5. Notebooks load the resulting netCDF files with xarray, compute derived quantities (isotope
    ratios in per-mil notation, precipitation-weighted isotope values, LIG−PI / LGM−PI
-   differences), and produce figures — compared where relevant against `proxy_data/*.csv` and
+   differences), and produce figures — compared where relevant against `data/processed/*.csv` and
    external obs/reanalysis (e.g. IMERG precip, ETOPO topography) under `$WORK_DATA_DIR`.
 
 Each stage's output path is still consumed by the next stage's input path by construction (e.g.

@@ -1,4 +1,4 @@
-# proxy_data
+# data/processed — timeslice-mean proxy δD
 
 Timeslice-mean proxy hydrogen isotope (δD) records used in the notebooks to compare against
 simulated precipitation δD. Both files cover the same two cores and the same three timeslices
@@ -8,7 +8,7 @@ simulated precipitation δD. Both files cover the same two cores and the same th
 
 - `timeslice_mean_proxy_dDraw.csv` — the file actually read by the notebooks
   (`LGM_analyses.ipynb`, `LIG127k_analyses_PALEOCALADJUSTED.ipynb`) via
-  `pd.read_csv('proxy_data/timeslice_mean_proxy_dDraw.csv')`.
+  `pd.read_csv('data/processed/timeslice_mean_proxy_dDraw.csv')`.
 - `timeslice_mean_proxy_dD.csv` — not currently loaded by any notebook.
 
 The two files' δD values differ by a near-constant offset of about **+91 to +92‰**

@@ -25,7 +25,7 @@ Neither machine holds all the data, deliberately:
 
 iCESM output is never copied off `/glade`; proxy and observational data is never copied onto it.
 Only small derived products cross, and they cross *through this repo* — which is why
-`proxy_data/*.csv` is tracked. The MATLAB under `scripts/matlab/` is present in a Casper clone
+`data/processed/*.csv` is tracked. The MATLAB under `scripts/matlab/` is present in a Casper clone
 for provenance and editing but **cannot run there** (it needs a local MATLAB plus toolbox
 functions outside this repo). That is expected.
 
@@ -38,11 +38,15 @@ functions outside this repo). That is expected.
 ├── LIG127k_analyses_NOT_paleocaladjust.ipynb   # MODEL: LIG vs. PI (calendar not adjusted)
 ├── fig1_swna_modern_climate.ipynb              # PROXY: modern SW-NA climatology (OIPC/IMERG/ETOPO5)
 ├── fig2_dsdp480-479_agemodel.ipynb             # PROXY: Bacon age-depth models + the 480/479 splice
-├── fig3_dDwax_timeseries.ipynb                 # PROXY: δD records vs. LR04; writes proxy_data/*.csv
+├── fig3_dDwax_timeseries.ipynb                 # PROXY: δD records vs. LR04; writes data/processed/*.csv
 ├── environment.yml                             # gcm_analysis conda environment spec
 ├── config/
 │   └── paths.env.example                       # Template for local path overrides (copy to paths.env)
-├── proxy_data/                                 # Timeslice-mean proxy δD by core; see its README
+├── data/                                       # Tree is tracked, data is not — see data/README.md
+│   ├── raw/                                    #   Original, immutable
+│   ├── external/                               #   Third-party datasets
+│   ├── interim/                                #   Intermediate pipeline products
+│   └── processed/                              #   Analysis-ready; the timeslice proxy δD CSVs live here
 ├── deprecated/                                 # Superseded code, frozen for provenance — reference only
 ├── tools/                                      # Repo tooling (notebook-output stripping)
 └── scripts/
@@ -74,8 +78,8 @@ filesystem. The pipeline runs in four stages:
    (requires `module load nco`).
 4. **Python analysis** (top-level notebooks) — load the intermediate netCDFs with xarray, compute
    isotope ratios in per-mil (‰) notation, precipitation-weight them, take LIG−PI / LGM−PI
-   differences, and produce figures, validating against `proxy_data/*.csv` (see
-   `proxy_data/README.md`) and external observational datasets (e.g. IMERG precipitation, ETOPO
+   differences, and produce figures, validating against `data/processed/*.csv` (see
+   `data/processed/README.md`) and external observational datasets (e.g. IMERG precipitation, ETOPO
    topography).
 
 Each stage's output path is consumed by the next stage's input path (e.g. an NCL script's `opath`

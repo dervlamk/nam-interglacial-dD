@@ -113,7 +113,7 @@ MCMC realizations. Same settings, different draw.
 >
 > - the **code** now assigns DSDP-480 ages from the canonical run;
 > - every **stored product** — `*_FAMEs_*.mat`, the `dDp`/`pJAS` sheets in
->   `d480_d479_processed_dD.xlsx`, and `proxy_data/timeslice_mean_proxy_dDraw.csv` — was
+>   `d480_d479_processed_dD.xlsx`, and `data/processed/timeslice_mean_proxy_dDraw.csv` — was
 >   produced with the *other* realization, and is off by up to 2,813 yr at some depths.
 >
 > That matters most where a sample sits near a timeslice edge: the LGM window is 18–24 ka and
@@ -247,6 +247,6 @@ over simulation years 0801–0900.
 
 ## Data that is *not* external
 
-`proxy_data/*.csv` is tracked in this repo on purpose — it is how the Casper clone receives proxy
-numbers without any raw proxy data crossing to `/glade`. See `proxy_data/README.md` for its
+`data/processed/*.csv` is tracked in this repo on purpose — it is how the Casper clone receives proxy
+numbers without any raw proxy data crossing to `/glade`. See `data/processed/README.md` for its
 provenance and the ε caveat.
