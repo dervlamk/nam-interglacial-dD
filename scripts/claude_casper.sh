@@ -38,7 +38,7 @@ PRIORITY="${PRIORITY:-economy}"        # economy is cheapest
 echo "Requesting interactive Casper session:"
 echo "  account=${ACCOUNT} queue=${QUEUE} ncpus=${NCPUS} mem=${MEM} walltime=${WALLTIME} priority=${PRIORITY}"
 echo "Once you land on the compute node, start Claude Code with:"
-echo "    module load conda && conda activate gcm_analysis && claude"
+echo "    module load conda && conda activate nam_dD_lig && claude"
 echo
 
 # -I = interactive; -l select pins the resources. Single node — the work is a

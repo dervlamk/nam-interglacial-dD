@@ -1,14 +1,22 @@
-# Mirrors the `gcm_analysis` conda environment used to run the notebooks in this repo
-# (on NCAR Casper/Derecho: /glade/work/dervlamk/conda-envs/gcm_analysis).
+# The conda environment for this project, and only this project.
+#
+# Deliberately self-contained: it replaces the shared `gcm_analysis` env, which is used by
+# other projects too and so could not be pinned or extended without affecting them. One env
+# serves BOTH halves of this repo — the model notebooks (Casper) and the proxy figure
+# notebooks (laptop) — so a fresh clone runs everything from this one file.
 #
 # Create with:
 #   conda env create -f environment.yml
 # or, faster:
 #   mamba env create -f environment.yml
 #
+# Then register the Jupyter kernel (the notebooks are saved against this name):
+#   conda activate nam_dD_lig
+#   python -m ipykernel install --user --name nam_dD_lig --display-name "nam_dD_lig"
+#
 # Versions are pinned to what the original environment used, without OS-specific
-# build hashes, so this resolves on platforms other than linux-64 as well.
-name: gcm_analysis
+# build hashes, so this resolves on both linux-64 (Casper) and osx-arm64 (laptop).
+name: nam_dD_lig
 channels:
   - conda-forge
 dependencies:

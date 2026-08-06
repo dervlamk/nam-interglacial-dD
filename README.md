@@ -39,7 +39,7 @@ functions outside this repo). That is expected.
 ├── fig1_swna_modern_climate.ipynb              # PROXY: modern SW-NA climatology (OIPC/IMERG/ETOPO5)
 ├── fig2_dsdp480-479_agemodel.ipynb             # PROXY: Bacon age-depth models + the 480/479 splice
 ├── fig3_dDwax_timeseries.ipynb                 # PROXY: δD records vs. LR04; writes data/processed/*.csv
-├── environment.yml                             # gcm_analysis conda environment spec
+├── environment.yml                             # nam_dD_lig conda environment spec (both halves)
 ├── config/
 │   └── paths.env.example                       # Template for local path overrides (copy to paths.env)
 ├── data/                                       # Tree is tracked, data is not — see data/README.md
@@ -108,12 +108,13 @@ source config/paths.env
 
 ## Environment
 
-Notebooks run under a Jupyter kernel named `gcm_analysis`. Recreate it with:
+Notebooks run under a Jupyter kernel named `nam_dD_lig` — one environment for both halves of
+the project, deliberately not shared with any other project. Recreate it with:
 
 ```bash
 conda env create -f environment.yml
-conda activate gcm_analysis
-python -m ipykernel install --user --name gcm_analysis
+conda activate nam_dD_lig
+python -m ipykernel install --user --name nam_dD_lig
 ```
 
 This installs xarray, netCDF4, metpy, cartopy, cmocean, colorcet, seaborn, scipy, pandas, and the

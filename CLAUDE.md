@@ -329,8 +329,18 @@ This only works if the notebook is run from the repo root (so `'.'` resolves the
 
 ## Environment
 
-Notebooks run under a Jupyter kernel named `gcm_analysis` (see notebook metadata
-`kernelspec.name`). `environment.yml` mirrors that env (`conda env create -f environment.yml`).
+All six notebooks run under a Jupyter kernel named **`nam_dD_lig`** (see notebook metadata
+`kernelspec.name`), defined by `environment.yml` (`conda env create -f environment.yml`). It is
+**project-specific on purpose** — it replaced the shared `gcm_analysis` env, which other projects
+also use and so could not be pinned or extended safely. One environment serves both halves: it
+carries the model-side stack plus `openpyxl` and `xlrd` for the proxy spreadsheets. Register the
+kernel once per machine:
+
+```bash
+conda activate nam_dD_lig
+python -m ipykernel install --user --name nam_dD_lig --display-name "nam_dD_lig"
+```
+
 NCL scripts require an NCL install with `NCARG_ROOT` set (loaded via `module load ncl` or similar
 on Casper/Derecho, not conda-installable); shell scripts require `module load nco` (also handled
 by `environment.yml` via conda-forge's `nco`/`cdo` packages if you'd rather not rely on modules).
