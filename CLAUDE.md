@@ -29,6 +29,23 @@ toolbox functions (`icevolcorr`, `ebisuzaki`, `longitude_flip`) that live in
 `~/Documents/MATLAB/toolbox/`, outside this repo. It is cloned there for provenance and editing
 only. That is expected, not broken.
 
+> **Read `DATA_MANIFEST.md` before building on the proxy side.** Three things there affect
+> results, not just tidiness:
+> - `fig3` mis-indexes the NH22P uncertainty band — it hardcodes `iters = 1000` but that
+>   ensemble is 1020 wide, so the upper 2σ bound is the 95.6th percentile, not the 97.5th.
+> - The `dDp` ensembles stored in `*_processed_dD*.xlsx` have 1000 members, but
+>   `dDp_epsilon_calculation.m` sets `iters = 2500` — they predate the current settings. Those
+>   sheets are pasted in by hand; `Sheet1` beside them is legitimate hand-entered GC-IRMS data.
+> - **The code and the stored data currently disagree about DSDP-480 ages.** The canonical age
+>   model is now `Bacon_runs/DSDP480/` (the run `fig2` plots) and the MATLAB has been repointed
+>   there, but nothing has been re-run — so every `*_FAMEs_*.mat`, the `dDp`/`pJAS` sheets, and
+>   `proxy_data/*.csv` still come from a different MCMC realization, off by up to 2,813 yr.
+>   Downstream numbers are provisional until a rerun.
+>
+> Don't paper over any of them by picking a file that happens to load, and don't re-run the
+> pipeline to "fix" the third without reading `SCRIPT_CLEANUP_PLAN.md` — three corrections are
+> meant to land in one regeneration.
+
 ## Repository layout
 
 - `LGM_analyses.ipynb`, `LIG127k_analyses_NOT_paleocaladjust.ipynb`,

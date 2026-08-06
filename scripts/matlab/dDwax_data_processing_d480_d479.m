@@ -40,15 +40,21 @@ clearvars dD_d480 dD_d479 filename opts
 %% Update ages based on latest Bacon results
 
 % DSDP-480 Bacon output
-cd '/Users/dervlamk/Library/CloudStorage/OneDrive-UCIrvine/research/eastern_pacific_cores/Bacon_runs_new/DSDP480'
+% CANONICAL age model for DSDP-480 is Bacon_runs/DSDP480 — it is the run that produced
+% DSDP480_mcmc_new.csv, which fig2_dsdp480-479_agemodel.ipynb plots. Verified: the median
+% column here matches that ensemble's column medians to 0.3 yr (rounding).
+% This previously read Bacon_runs_new/DSDP480, a DIFFERENT MCMC realization of the same
+% 165-section configuration, which disagreed by up to 2813 yr. See DATA_MANIFEST.md.
+cd '/Users/dervlamk/OneDrive/data/proxies/eastern_pacific_cores/Bacon_runs/DSDP480'
 filename         = 'DSDP480_165_ages.txt';
 d480_agedepth    = importdata(filename);
 d480_depths      = d480_agedepth.data(:,1)./100;
 d480_median_ages = d480_agedepth.data(:,4);
 d480.age         = (interp1(d480_depths, d480_median_ages, d480.depth, 'linear', 'extrap'))./1000; %ka
 
-% DSDP-479 Bacon output
-cd '/Users/dervlamk/Library/CloudStorage/OneDrive-UCIrvine/research/eastern_pacific_cores/Bacon_runs/DSDP479'
+% DSDP-479 Bacon output — only one run exists, no ambiguity. Path updated to the live
+% location; the rest of this script still carries dead roots pending the paths.env migration.
+cd '/Users/dervlamk/OneDrive/data/proxies/eastern_pacific_cores/Bacon_runs/DSDP479'
 filename         = 'DSDP479_113_ages.txt';
 d479_agedepth    = importdata(filename);
 d479_depths      = d479_agedepth.data(:,1)./100;

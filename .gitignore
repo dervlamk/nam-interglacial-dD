@@ -14,9 +14,39 @@ __pycache__/
 .DS_Store
 
 # Local outputs / scratch (not meant to live in the repo)
-*.nc
 figures/
 outputs/
+
+# =============================================================================
+# data/ — the TREE is tracked, the DATA is not.
+# =============================================================================
+# A fresh clone gets the four empty directories plus their READMEs, so anyone
+# reproducing these results has somewhere to download the data to. See
+# data/README.md for what belongs where and DATA_MANIFEST.md for sources.
+#
+# This is a directory rule, not just an extension rule, because size does not
+# track format here: DSDP480_mcmc_new.csv is 6.8 MB and would pass any
+# extension-based filter, while imerg.gn.timeseries.2001-2018.nc is 3.1 GB.
+data/**
+!data/**/
+!data/**/.gitkeep
+!data/**/README.md
+
+# Small derived tables that ARE tracked on purpose: this is how the Casper clone
+# receives proxy numbers without any raw proxy data crossing to /glade.
+!data/processed/timeslice_mean_proxy_*.csv
+
+# =============================================================================
+# Large data formats — belt and braces, anywhere in the tree
+# =============================================================================
+*.nc
+*.nc4
+*.grib
+*.grib2
+*.h5
+*.hdf5
+*.zarr/
+*.npz
 
 # MATLAB. .mat is a data format — the proxy pipeline's *_FAMEs_*.mat intermediates and the
 # old icesm_atm.mat model intermediates must never land here. *.asv are editor autosaves.
@@ -24,8 +54,7 @@ outputs/
 *.asv
 slprj/
 
-# Proxy spreadsheets live on OneDrive ($PROXY_DATA_DIR) and are never copied into the repo.
-# Belt and braces in case one gets dragged in.
+# Proxy spreadsheets are data, not code.
 *.xlsx
 *.xls
 
