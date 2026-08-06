@@ -47,6 +47,29 @@ are how the Casper clone receives proxy numbers without any raw proxy data cross
 Read `proxy_data/README.md` for their provenance and the ε caveat: use `dDraw`; the other came
 from a cell its author disabled.
 
+## What is currently populated
+
+`raw/` holds a **copy** of the raw, immutable inputs, made 2026-08-05 and verified
+byte-identical (md5) against the originals. **Nothing was moved** — every original is still in
+place on OneDrive.
+
+```
+raw/NH22P/                 dD_nh22p.xls, nh22p_processed_dD_{hand,auto}picked.xlsx
+raw/DSDP-480-479/          d480-479_dD.xlsx, d480_d479_processed_dD.xlsx
+raw/DSDP-480-479/age_model/ sample_depths_{480,479}.xlsx + the three published tie-point sources
+raw/Bacon_runs/DSDP480/    canonical run only — mcmc_new.csv, 165_ages.txt, DSDP480.csv, depths, 165.pdf
+raw/Bacon_runs/DSDP479/    mcmc.csv, 113_ages.txt, DSDP479.csv, depths
+```
+
+Two deliberate exclusions, both to avoid re-importing ambiguity that has already been resolved:
+
+- **Only the canonical DSDP-480 Bacon run was copied.** The five superseded configurations
+  (`_84`, `_162`, `_990`, `_1681`) and the `DSDP480_old*` sibling directories remain on OneDrive
+  only. See `DATA_MANIFEST.md` §2 for which run is canonical and why.
+- **`external/` and `interim/` are empty.** The observational datasets are large (IMERG is
+  3.1 GB, OIPC 396 MB) and the interim products are pipeline outputs, not inputs. Download or
+  regenerate them as needed.
+
 ## Two things this layout does not change
 
 **iCESM model output stays on `/glade`.** It is far too large to download and is
