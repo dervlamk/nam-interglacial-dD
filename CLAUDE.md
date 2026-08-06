@@ -43,8 +43,66 @@ only. That is expected, not broken.
 >   Downstream numbers are provisional until a rerun.
 >
 > Don't paper over any of them by picking a file that happens to load, and don't re-run the
-> pipeline to "fix" the third without reading `SCRIPT_CLEANUP_PLAN.md` — three corrections are
-> meant to land in one regeneration.
+> pipeline to "fix" the third on its own — see "The rerun" below; three corrections are meant to
+> land in one regeneration.
+
+## Outstanding cleanup
+
+Recorded here because it is not obvious from the code, and because doing these in the wrong
+order costs rework.
+
+### The rerun — do it once
+
+Three corrections all change the same downstream products. Running them separately means three
+rounds of regenerated `.mat`, spreadsheets, CSVs and figures, and three chances to lose track of
+which numbers came from what. Make all three code changes first, then regenerate once, then
+compare against the current published numbers and explain the differences.
+
+1. The canonical DSDP-480 age model — **code already repointed**, stored products still lag.
+2. The δD<sub>p</sub> ensembles at the current `iters = 2500` — the stored ones are 1000/1020
+   members and predate the setting.
+3. The `fig3` percentile fix, so the NH22P band is right when the figure is redrawn.
+
+Expect the timeslice means to move: item 1 alone shifts some sample ages by up to 2.8 kyr, and
+the timeslice windows are only 6–13 kyr wide. The regression test for any restructure is that
+`dDp_epsilon_calculation.m` still reproduces `nh22p_FAMEs_01-May-2025.mat` to within Monte Carlo
+noise.
+
+### Known duplication and rough edges
+
+- **Two parallel MATLAB pipelines that overlap and write the same filename pattern.**
+  `dDp_epsilon_calculation.m` (2025) is the newer δD<sub>p</sub> implementation and the one last
+  run — the most recent outputs match its mtime. But `dDwax_data_processing_*.m` (2024) is the
+  *only* place Bacon age assignment and the %JAS regression exist end to end. Neither is a
+  superset. Target: four single-purpose stages (process → assign ages → dDp → %JAS) with
+  explicit inputs and outputs and no shared filename pattern.
+- **No MATLAB script reads `config/paths.env`.** Every one `cd`s to a hardcoded absolute path,
+  and all of them are dead. `cd` is also not just a path problem — it mutates the working
+  directory, so the scripts are order-dependent. Replace with a `paths.m` shim reading the same
+  env vars the NCL and NCO scripts use.
+- **`pJAS_calculation.m` is not self-contained** — it expects `X` and `Y` to already exist in the
+  workspace, so it silently uses whatever is lying around if the precondition is wrong. Make it
+  a function.
+- **The spreadsheet round trip.** `Sheet1` of `*_processed_dD*.xlsx` is legitimate hand-entered
+  GC-IRMS data, but the `dDp`/`pJAS` sheets beside it are computed ensembles pasted back in by
+  hand. That is how they fell out of sync with `iters`. Have the MATLAB write ensembles to their
+  own files instead.
+- **`pressureRegrid_LIG.ncl` outputs PI-climatology data** despite its name, overlapping
+  `pressureRegrid_PI_climo.ncl`. Confirm which produced the data in use before relying on either.
+- **`scripts/py_functions/plot_tools.py` is imported by nothing** — superseded by
+  `map_plot_tools.py`. Delete or move to `deprecated/`; an unused near-duplicate of the plotting
+  layer invites divergence.
+- **Stop loading `.mat` by hardcoded date.** Several figure scripts name a specific
+  `*_FAMEs_<date>.mat`, which is how a figure quietly ends up on year-old data. There are 25 of
+  them spanning 2022–2025.
+
+### Don't "fix" these — they are deliberate
+
+Beyond the scientific invariants above: don't unify the timeslice windows, don't switch
+δD<sub>p</sub> to the ice-volume-corrected series, don't retune the endmembers, and don't repair
+the dead paths in `deprecated/`. Don't port the MATLAB to Python as part of a restructure either
+— that is a separate decision with its own verification burden, and mixing it in makes any
+numerical difference impossible to attribute.
 
 ## Repository layout
 
