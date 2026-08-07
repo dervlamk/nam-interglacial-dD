@@ -67,10 +67,10 @@ Re-run from the reorganised tree, they reproduce the stored products:
 MATLAB seeds its RNG identically each session, which is why bit-identical reproduction is
 achievable at all — a difference beyond ~0.3‰ means something real changed, not noise.
 
-**Optional hardening:** `fig3` hardcodes `iters = 1000` and derives its shading indices from it.
-That is correct now that both `dDp` sheets are 1000 wide, but
-`np.nanpercentile(dDp, [2.5, 16, 84, 97.5], axis=1)` would be correct at any width and remove
-the possibility of the two drifting apart again.
+**Percentile hardening — done 2026-08-07.** `fig2` and `fig3` both used to hardcode an ensemble
+width (`iters = 4000` / `1000`) and index into a sorted array. Both now use
+`np.nanpercentile(..., [2.5, 16, 84, 97.5])` over the ensemble axis, which is correct at any
+width. Don't reintroduce the index form.
 
 If the ensembles are ever regenerated, paste them into `*_processed_dD*.xlsx` leaving `Sheet1`
 (the hand-entered GC-IRMS data) alone, re-run `fig3` to regenerate `data/processed/*.csv`, push,
@@ -337,11 +337,21 @@ by `environment.yml` via conda-forge's `nco`/`cdo` packages if you'd rather not 
 
 ## Repo tooling (not part of the science pipeline)
 
-`tools/strip_notebook_output.py` clears notebook cell outputs/execution counts; wired up as a git
-clean filter via `.gitattributes` (`*.ipynb filter=stripoutput`). Run `tools/setup_git_filters.sh`
-once per clone to register the filter locally (git filter config isn't versioned). This keeps
-embedded figure outputs out of git history — don't remove the filter setup without replacing it
-with something equivalent, or the notebooks will balloon back to multi-MB commits.
+`tools/strip_notebook_output.py` does two things, both so notebook diffs stay readable: it clears
+cell outputs/execution counts, and it normalises every cell's `source` to nbformat's
+list-of-lines form. It is wired up as a git clean filter via `.gitattributes`
+(`*.ipynb filter=stripoutput`). Run `tools/setup_git_filters.sh` once per clone to register the
+filter locally (git filter config isn't versioned).
+
+- Clearing outputs keeps embedded figures out of git history — don't remove the filter setup
+  without replacing it with something equivalent, or the notebooks will balloon back to
+  multi-MB commits.
+- Normalising `source` matters because nbformat permits `source` to be either a list of lines or
+  one long string, and both load fine in Jupyter. A cell stored as a string is a single JSON
+  line, so git renders any edit to it as a whole-cell rewrite rather than a line-by-line diff.
+  Jupyter writes the list form; programmatic editors (including Claude Code's NotebookEdit)
+  write the string form. All six notebooks were normalised on 2026-08-07. The filter is
+  idempotent, so it will not fight the working tree.
 
 ## Working with the notebooks
 

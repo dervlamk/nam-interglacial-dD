@@ -31,7 +31,7 @@ data/
 ### `external/` — third-party
 | | |
 |---|---|
-| `LR04stack_d18O.csv`, `lr04.mat` | LR04 benthic δ¹⁸O stack (Lisiecki & Raymo 2005) |
+| `lr04.mat` | LR04 benthic δ¹⁸O stack (Lisiecki & Raymo 2005). Variable `delob` = `[age (ka), δ¹⁸O, error]`. Read by the MATLAB `icevolcorr` and, since 2026-08-07, by `fig2`. The `LR04stack_d18O.csv` that `fig3` still names no longer exists on this machine — see `DATA_MANIFEST.md`. |
 | `OIPC_monthly_data.nc` | OIPC monthly isoscape (~396 MB) |
 | `imerg.gn.timeseries.2001-2018.nc` | IMERG precipitation (~3.1 GB) |
 | `obs.etopo5.zsurf.nc` | ETOPO5 topography |

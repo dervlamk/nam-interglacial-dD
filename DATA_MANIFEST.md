@@ -69,19 +69,22 @@ computed ensembles back into it. Have the MATLAB `writematrix` the `dDp`/`pJAS` 
 their own files and have `fig3` read `Sheet1` from the spreadsheet and the ensembles from those.
 The manual paste is what produced the 1020-column error.
 
-### 1b. `fig3` percentile indexing
+### 1b. `fig3` percentile indexing — resolved 2026-08-07
 
-`fig3_dDwax_timeseries.ipynb` hardcodes `iters = 1000`, derives its shading indices from it, and
-applies the same indices to both cores. That is **correct** now that both `dDp` sheets are 1000
-members wide.
+`fig3_dDwax_timeseries.ipynb` used to hardcode `iters = 1000`, derive its shading indices from it,
+and apply the same indices to both cores. That was correct only for as long as both `dDp` sheets
+stayed exactly 1000 members wide.
 
 It was wrong while the NH22P sheet was 1020: index 975 is the 97.5th percentile of 1000 but only
 the 95.6th of 1020, so that band was drawn too narrow at the top. Fixing the sheet fixed the
-figure; no code change was required.
+figure at the time; no code change was required then.
 
-Worth doing anyway as insurance against a recurrence:
-`np.nanpercentile(dDp, [2.5, 16, 84, 97.5], axis=1)` is correct at any ensemble width and
-removes the hardcoded `iters` entirely.
+**Both `fig3` and `fig2` now use `np.nanpercentile(..., [2.5, 16, 84, 97.5])`** over the ensemble
+axis, which is correct at any ensemble width. The hardcoded `iters` is gone from both, so this
+particular failure cannot recur. `fig2`'s bands were verified bit-identical to the old
+sorted-index version; the largest disagreement anywhere was 78 yr on a 137,000-yr axis, which is
+the expected index-vs-interpolation difference (index 3900 of 4000 is the 97.525th percentile,
+not the 97.5th).
 
 ### 2. DSDP-480 age model — settled
 
@@ -111,6 +114,52 @@ insufficient to tell them apart — several share them. Only the interpolated ag
 them.
 
 **DSDP-479 has no such problem** — one run (`_113`), one MCMC file, unambiguous.
+
+**`fig2` was refactored onto this tree on 2026-08-07, and the refactor was numerically inert.**
+It had always read the canonical `DSDP480_mcmc_new.csv`; what it could not do was find it, since
+its paths pointed at a deleted OneDrive tree. It now resolves `PROXY_DATA_DIR`. Confirmed at the
+same time:
+
+- The MCMC ensembles **did not need regenerating.** `DSDP480_mcmc_new.csv` column medians match
+  `DSDP480_165_ages.txt`'s `median` to 0.49 yr and its 2.5/97.5 column percentiles match that
+  file's `min`/`max` to 0.50 yr — integer rounding. Same for DSDP-479 (0.50 yr). The ensemble
+  `fig2` plots and the ages file the MATLAB uses are the same Bacon run.
+- Every tie-point age previously hardcoded in `fig2` re-derives **exactly** from these files
+  (`108572.80059` @ 4307 cm, `118676.66515` @ 4596, `106559.5` @ 3476, `124952.8383` @ 4351,
+  and `[39.3945251, 71.98959448, 123.61099118]` ka). They are now computed, not pasted.
+
+**The ¹⁴C tie points — fixed 2026-08-07.** `DSDP480.csv` mixes two timescales, which is the whole
+of the problem. The `cc` column says which: `cc=0` rows carry calendar ages Bacon uses as given;
+the six `cc=2, dR=300` Keigwin & Jones planktic dates carry *uncalibrated radiocarbon* ages that
+Bacon converts internally against the marine curve. The age-depth model comes back in calendar
+years, so `fig2` was drawing radiocarbon years on a calendar-year axis — a unit error.
+
+All six fell outside the Bacon 95% band, always too young, offset growing monotonically:
+
+| depth (cm) | 1051 | 1081 | 1311 | 1351 | 1536 | 1806 |
+|---|---|---|---|---|---|---|
+| offset (yr) | +790 | +942 | +1517 | +1706 | +2199 | +3008 |
+
+Monotonic growth is the shape of the radiocarbon–calendar conversion through the deglaciation plus
+a constant reservoir offset. The decisive evidence that the age model is fine is internal: the
+`cc=0` ties over the same depth interval need no conversion and land within ~85 yr. A bad age
+model would miss both kinds; only the ones needing a unit conversion were off.
+
+They are now plotted at Bacon's calibrated calendar age for their depth, with the model's 95%
+interval as the error bar. **Caveat, recorded because it limits what the panel proves:** those six
+markers are now model-dependent — they lie on the median line by construction and are no longer an
+independent check of the fit. They show which depths carry radiocarbon control. The `cc=0` markers
+are still drawn at their own input ages and remain independent checks. Restoring an independent
+check for the ¹⁴C dates means vendoring Marine20 and recalibrating at ΔR = 300 ± 20; there is no
+calibration curve in this repo today, which is why the fix stops where it does.
+
+The same commit also repaired a second inconsistency: the old code drew the `cc=2` error bars at
+`age - dR` while drawing the markers at `age`, so bar and marker sat at different x positions.
+
+Separately and pre-existing: `d479_tie-2` (125 ka @ 4596 cm) and `d18O-1` (130 ka @ 4839 cm) fall
+*outside* the Bacon 95% band by ~6.3 and ~5.1 ka — the accumulation-rate prior pulling the base of
+the core younger than those ±2000 yr tie points ask for. Not introduced by any recent change.
+
 ---
 
 ## Where the data lives
@@ -132,11 +181,12 @@ Either way, no script hardcodes a location.
 | NH22P raw δD<sub>C30</sub> | `eastern_pacific_cores/NH22P/data/dD_nh22p.xls` (sheet `dD_nh22p`) | `dDp_epsilon_calculation.m`, `dDwax_data_processing_nh22p.m` | ✅ |
 | DSDP-480/479 raw δD<sub>C30</sub> | `eastern_pacific_cores/DSDP-480-479/data/d480-479_dD.xlsx` (sheets `d480_dD_good`, `d479_dD_good`) | `dDp_epsilon_calculation.m`, `dDwax_data_processing_d480_d479.m` | ⚠️ a second copy exists at `proxies/DSDP-480-479/leaf_waxes/d480-479_dD.xlsx`; unverified whether identical |
 | LR04 benthic stack (MATLAB) | `global_paleo_timeseries/lr04.mat` | all MATLAB (`icevolcorr`) | ✅ |
-| LR04 benthic stack (Python) | `global_paleo_timeseries/LR04stack_d18O.csv` | `fig2`, `fig3` | ⚠️ also present as `.xls`, `.xlsx`, `LR04_d18O.txt`, and a copy under `DSDP-480-479/data/`; assumed identical, never checked |
+| LR04 benthic stack (Python) | ~~`global_paleo_timeseries/LR04stack_d18O.csv`~~ | nothing | ❌ **the CSV is gone from this machine** — the OneDrive `research/global_paleo_data/` directory it lived in no longer exists, and no copy survives anywhere under `data/`. No longer referenced by any code; both `fig2` and `fig3` were repointed on 2026-08-07. |
+| LR04 benthic stack (Python) | `data/external/lr04.mat`, variable `delob` = `[age (ka), d18O, error]`, 2115 rows | `fig2`, `fig3`, all MATLAB (`icevolcorr`) | ✅ **as of 2026-08-07 both figure notebooks read the `.mat` directly** rather than the missing CSV. One canonical copy, shared with the MATLAB pipeline. Note `delob[:,0]` is already in **ka** — `fig2`/`fig3` plot it on a ka axis without dividing, unlike the Bacon-derived series which are in years. |
 | GoC δD→%JAS calibration | `coretops/GoCregressionFINAL.mat` (`b_draws_final`, `tau2_draws_final`) | `dDwax_data_processing_*.m` | ⚠️ location known; **provenance undocumented** — which core-top compilation, which publication, how many sites |
 | Bacon DSDP-479 | `Bacon_runs/DSDP479/` (`DSDP479_mcmc.csv`, `DSDP479.csv`, `DSDP479_113_ages.txt`) | `fig2`, `dDwax_data_processing_d480_d479.m` | ✅ |
-| Bacon DSDP-480 | see blocking problem 2 | | ❌ |
-| Sample depths | `DSDP-480-479/age_model/sample_depths_{480,479}.xlsx` | `fig2` | ✅ |
+| Bacon DSDP-480 | `Bacon_runs/DSDP480/` (`DSDP480_mcmc_new.csv`, `DSDP480.csv`, `DSDP480_165_ages.txt`) | `fig2`, `dDwax_data_processing_d480_d479.m` | ✅ settled — see section 2. `fig2` reads the MCMC ensemble, the MATLAB reads the ages file; verified 2026-08-07 to be the same run (medians agree to 0.5 yr) |
+| Sample depths | `DSDP-480-479/age_model/sample_depths_{480,479}.xlsx` | `fig2` | ✅ 152 rows for 480 (2390 cm appears **twice** — two samples at one depth), 34 for 479; both match their MCMC column counts |
 | Age-model tie points | `DSDP-480-479/age_model/{ShackletonHall82,KeigwinJones90}_d18O.xlsx`, `Byrne90_pollen.xlsx` | `fig2` | ✅ published sources, cited in filenames |
 | `fig3` processed records — NH22P | `eastern_pacific_cores/NH22P/data/nh22p_processed_dD_handpicked.xlsx` | `fig3` | ⚠️ `Sheet1` is hand-entered GC-IRMS data (primary, correct); the `dDp`/`pJAS` sheets are pasted-in computed ensembles that no longer match the scripts. See problem 1. |
 | `fig3` processed records — DSDP | `eastern_pacific_cores/DSDP-480-479/data/d480_d479_processed_dD.xlsx` | `fig3` | ⚠️ same structure |
