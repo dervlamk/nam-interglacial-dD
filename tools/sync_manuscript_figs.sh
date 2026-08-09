@@ -24,9 +24,9 @@ set -euo pipefail
 # --- the manuscript figure set ---------------------------------------------------------------
 # "<filename>|<notebook that produces it>"
 FIGURES=(
-  "modern_climo.png|fig1_swna_modern_climate.ipynb"
-  "dsdp_480-479.agemodel.pdf|fig2_dsdp480-479_agemodel.ipynb"
-  "dDp_timeseries.pdf|fig3_dDwax_timeseries.ipynb"
+  "modern_climo.png|swna_modern_climatology.ipynb"
+  "dsdp_480-479.agemodel.pdf|dsdp-480-479_age-model.ipynb"
+  "dDp_timeseries_stacked.pdf|dDwax_timeslice-means_timeseries.ipynb"
 )
 
 # --- arguments ---------------------------------------------------------------------------------
