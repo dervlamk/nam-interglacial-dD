@@ -58,14 +58,19 @@ def longitude_flip(var):
     x,_=get_xy_coords(var) # extract original longitude values
     lon_name=x.name        # store name of longitude coordinate
     nx=len(x)              # longitude resolution
-    
+    # Coerce the endpoints to plain floats. Passing 0-d DataArrays to np.linspace makes numpy
+    # wrap its 1-D result back into a DataArray carrying dims=(), which assign_coords then
+    # rejects with "dimensions () must have the same length as the number of data dimensions".
+    # float() also avoids the builtin min()/max() iterating the coordinate element by element.
+    lon_min,lon_max=float(x.min()),float(x.max())
+
     # determine longitude format and create an array of new lons in opposite convention
-    if min(x)<0: 
+    if lon_min<0:
         # if there are negative values, data is -180:180 and need to switch to 0:360
-        new_lons=np.linspace((min(x)+180), (max(x)+180), nx)
-    elif max(x)>180:
+        new_lons=np.linspace((lon_min+180), (lon_max+180), nx)
+    elif lon_max>180:
         # if the max value is >180, data is in 0:360 format and need to switch to -180:180
-        new_lons=np.linspace((min(x)-180), (max(x)-180), nx)
+        new_lons=np.linspace((lon_min-180), (lon_max-180), nx)
         
     # shift the data by 180° of longitude
     nshift=nx//2

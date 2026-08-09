@@ -353,6 +353,19 @@ filter locally (git filter config isn't versioned).
   write the string form. All six notebooks were normalised on 2026-08-07. The filter is
   idempotent, so it will not fight the working tree.
 
+`tools/sync_manuscript_figs.sh` copies the current manuscript figures from `$FIG_OUTPUT_DIR` into
+its `for_manuscript/` subdirectory. `$FIG_OUTPUT_DIR` is a working scratch space holding figures
+back to 2019 plus screenshots and stray `.m` files, so the script syncs an **explicit named set**
+(the `FIGURES` array at the top) rather than globbing — adding a figure to the manuscript means
+adding a line there. Deliberate: any automatic rule would either sweep in the scratch files or
+silently skip a figure whose `savefig()` is commented out.
+
+- Copies only when the source is newer, and preserves timestamps, so re-running is a no-op.
+- Exits 1 if any listed figure is missing, so it can gate a release step. `--dry-run` to preview.
+- Warns `STALE?` when a notebook is newer than the figure it produced — the figure is then built
+  from code that no longer exists. This is the "figure quietly on old data" failure mode that
+  `DATA_MANIFEST.md` flags elsewhere; here it is caught rather than documented.
+
 ## Working with the notebooks
 
 - These notebooks are long and stateful — cells build up dictionaries (`dat`, `files`, `dDp`,
