@@ -43,17 +43,24 @@ if ! REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null)
   REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)   # works outside a git checkout too
 fi
 
-# Same resolution order the rest of the pipeline uses: the environment first, then
-# config/paths.env, then the conventional sibling-of-the-repo location.
+# Environment first, then config/paths.env. There is deliberately NO third fallback: this
+# script used to default to $REPO_ROOT/../outputs while the notebooks defaulted to a repo-local
+# outputs/, so an unsourced Jupyter session wrote figures somewhere this script never looked and
+# the two directories diverged unnoticed. Erroring out is the point.
 if [ -z "${FIG_OUTPUT_DIR:-}" ] && [ -f "$REPO_ROOT/config/paths.env" ]; then
   # shellcheck disable=SC1091
   . "$REPO_ROOT/config/paths.env"
 fi
-SRC="${FIG_OUTPUT_DIR:-$REPO_ROOT/../outputs}"
+SRC="${FIG_OUTPUT_DIR:-}"
 
+if [ -z "$SRC" ]; then
+  echo "FIG_OUTPUT_DIR is not set and $REPO_ROOT/config/paths.env did not set it." >&2
+  echo "Copy config/paths.env.example to config/paths.env, or export FIG_OUTPUT_DIR." >&2
+  exit 2
+fi
 if [ ! -d "$SRC" ]; then
   echo "figure-output directory not found: $SRC" >&2
-  echo "Set FIG_OUTPUT_DIR, or copy config/paths.env.example to config/paths.env." >&2
+  echo "Check FIG_OUTPUT_DIR in config/paths.env." >&2
   exit 2
 fi
 SRC=$(cd "$SRC" && pwd)   # normalise ../ away so the messages below are readable

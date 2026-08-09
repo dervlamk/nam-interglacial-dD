@@ -55,13 +55,38 @@ def nam_domain_coords():
     # North: axis-aligned box
     coords['north'] = rotated_box(-110.5, 32.5, 8, 6, angle_deg=0)
 
-    # South: tilted bottom from a rotated 35° box, horizontal top flush with north's southern
-    # edge. Reusing north's two southern corners is what makes the shared edge exact, which in
-    # turn lets nam_domain_outline() dissolve it cleanly.
-    _south_rot = rotated_box(-107, 25, 4.5, 10, angle_deg=35)
+    # South: a lobe whose top edge is north's southern edge (reusing north's two southern
+    # corners is what makes the shared edge exact, which lets nam_domain_outline() dissolve it)
+    # and whose southern corner is placed by two constraints:
+    #
+    #   * the southernmost corner sits at exactly SOUTH_CORNER_LAT
+    #   * the southwest diagonal — which runs from that corner up to north's SW corner —
+    #     passes west of the southern tip of the Baja Peninsula, so the cape is inside the
+    #     domain rather than cut off by the boundary
+    #
+    # Those two fix the corner completely: it is where the line from the Baja anchor to north's
+    # SW corner crosses SOUTH_CORNER_LAT. BAJA_CAPE is the southernmost point of the peninsula
+    # in Natural Earth 10m; the margin pushes the edge west of it so the tip sits inside with
+    # clearance rather than balanced on the line (anchoring on the cape exactly would leave it
+    # on the boundary, and on a rounded 23N/110W it falls ~0.04 deg outside).
+    SOUTH_CORNER_LAT = 20.0            # southern edge of the domain: BOTH bottom corners
+    SOUTH_EAST_LON = -103.0            # eastern end of that southern edge
+    BAJA_CAPE = (-109.954, 22.872)     # Cabo San Lucas, Natural Earth 10m
+    BAJA_MARGIN = 0.15                 # deg of longitude west of the cape
+
+    nw = coords['north'][0]            # north's SW corner: the top of the diagonal
+    anchor = (BAJA_CAPE[0] - BAJA_MARGIN, BAJA_CAPE[1])
+    t = (SOUTH_CORNER_LAT - anchor[1]) / (nw[1] - anchor[1])
+    south_corner = np.array([anchor[0] + t * (nw[0] - anchor[0]), SOUTH_CORNER_LAT])
+
+    # The bottom edge is horizontal, both corners on SOUTH_CORNER_LAT. Its western end is fixed
+    # by the two constraints above; its eastern end is set outright. The original 35 deg tilt and
+    # 4.5 deg width are gone — with both ends now pinned there is nothing left for them to set.
+    bottom_right = np.array([SOUTH_EAST_LON, SOUTH_CORNER_LAT])
+
     coords['south'] = np.array([
-        _south_rot[0],       # rotated SW corner
-        _south_rot[1],       # rotated SE corner
+        south_corner,        # bottom-left corner,  on the 20 N line
+        bottom_right,        # bottom-right corner, on the 20 N line
         coords['north'][1],  # top-right = north's SE corner
         coords['north'][0],  # top-left  = north's SW corner
     ])
