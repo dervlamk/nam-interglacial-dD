@@ -21,6 +21,30 @@ def rotated_box(lon0, lat0, width, height, angle_deg):
     return rotated
 
 
+def lonlat_box(lon_min, lon_max, lat_min, lat_max):
+    """An axis-aligned lon/lat rectangle as a shapely Polygon.
+
+    For drawing a region on a cartopy map with
+    ``ax.add_geometries([...], crs=ccrs.PlateCarree())`` — the same call used for
+    nam_domain_outline(), so maps have one way of putting a region on an axis rather than
+    mixing add_geometries with LinearRing or matplotlib patches.
+    """
+    from shapely.geometry import box
+    return box(lon_min, lat_min, lon_max, lat_max)
+
+
+def core_site_boxes():
+    """The two core-site sampling regions, as shapely Polygons keyed by site.
+
+    These are the boxes the regional OIPC dDp averages were taken over, so they are what a map
+    should show if it is documenting where those averages came from.
+    """
+    return {
+        'Guaymas':  lonlat_box(-113, -109, 26, 29.5),
+        'Mazatlan': lonlat_box(-108, -104, 21, 24.5),
+    }
+
+
 def regional_weighted_mean(da, regions):
     """Area-weighted mean of da for all regions, returning a DataArray with a 'region' dim.
 

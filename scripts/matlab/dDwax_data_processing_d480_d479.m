@@ -83,6 +83,10 @@ if isempty(proxy_dir)
     end
 end
 extern_dir = fullfile(repo_root, 'data', 'external');
+% icevolcorr does a bare `load lr04.mat`, so it resolves that file off the MATLAB path
+% rather than from extern_dir. Put extern_dir on the path so the script works however
+% MATLAB was launched -- without this it picks up whatever stale saved path entry it finds.
+addpath(extern_dir);
 out_dir    = fullfile(repo_root, 'data', 'processed');
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 fprintf('proxy_dir = %s\n', proxy_dir);
@@ -170,8 +174,13 @@ d479.dDp  = (1000+normrnd(repmat(d479_in,1,iters),avgStDev))./(repmat(normrnd(ep
 
 %% Save DSDP-480 & DSDP-479 Data
 
+%  Two copies are written: a dated archive, and a stable undated name that downstream
+%  code reads. The stable name is what lets fig3 avoid hardcoding a date -- see CLAUDE.md
+%  on how a figure quietly ends up on year-old data.
 save(fullfile(out_dir, ['d480_FAMEs_',date,'.mat']), 'd480');
 save(fullfile(out_dir, ['d479_FAMEs_',date,'.mat']), 'd479');
+save(fullfile(out_dir, 'd480_FAMEs_current.mat'), 'd480');
+save(fullfile(out_dir, 'd479_FAMEs_current.mat'), 'd479');
 
 %% Create combined Guaymas Basin record
 
@@ -325,4 +334,5 @@ ylabel('%JAS')
 %% Save combined Guaymas data
 
 save(fullfile(out_dir, ['Guaymas_d480_d479_FAMEs_',date,'.mat']), 'Guay');
+save(fullfile(out_dir, 'Guaymas_d480_d479_FAMEs_current.mat'), 'Guay');   % what fig3 reads
 fprintf('wrote %s\n', fullfile(out_dir, ['Guaymas_d480_d479_FAMEs_',date,'.mat']));
