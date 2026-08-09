@@ -15,33 +15,40 @@ Confidence legend:
 | ⚠️ | Exists and is read, but there are competing copies or the provenance is undocumented. |
 | ❌ | **Unresolved.** Either the file has no traceable producer, or two consumers disagree about which copy is canonical. Do not build new work on these until settled. |
 
-Paths are relative to the env vars in `config/paths.env` (`$PROXY_DATA_DIR`, `$OBS_DATA_DIR`).
+Paths are either repo-relative (`data/raw/`, `data/external/`) or relative to the env vars in
+`config/paths.env`. Each row says which. As of 2026-08-09 only IMERG still sits outside the
+repo tree, so `$OBS_DATA_DIR` resolves exactly one dataset.
 
 ---
 
 ## Provenance of the proxy inputs
 
-### 1. `fig3`'s inputs are hand-entered GC-IRMS data
+### 1. The `*_processed_dD*.xlsx` round trip — closed 2026-08-09
 
-`nh22p_processed_dD_handpicked.xlsx` and `d480_d479_processed_dD.xlsx` were **hand-generated
-from GC-IRMS output**. They are primary data entry, upstream of the MATLAB pipeline rather than
-downstream of it. No script produces them and none should be written.
+**`fig3` no longer reads these spreadsheets.** It reads the MATLAB pipeline's `.mat` output
+directly. The files are still on disk and are still worth understanding, because everything
+published before this date came through them — but they are now orphaned, and nothing in the
+repo reads them. **See §1c for what replaced them and what changed.**
 
 `handpicked` vs `autopicked` refers to how the chromatographic peaks were integrated — manual
-versus software peak-picking of the GC-IRMS traces. `fig3` uses **handpicked**; that is a
-scientific choice, not a stale filename.
+versus software peak-picking of the GC-IRMS traces. `fig3` used **handpicked**; that is a
+scientific choice, not a stale filename, and it is preserved — the `.mat` it now reads is built
+from the handpicked raw file.
 
-**The caveat:** only `Sheet1` is instrument-derived. Each file carries three sheets, and the
-other two are *computed ensembles pasted in by hand*:
+**What these files actually were.** Despite the name, they are not the MATLAB pipeline's input.
+MATLAB reads the raw instrument files — `NH22P/dD_nh22p.xls` (sheet `dD_nh22p`) and
+`DSDP-480-479/d480-479_dD.xlsx` — whose columns are age, δD<sub>raw</sub>, stdev. The
+`*_processed_dD*.xlsx` files sit entirely *downstream*: all three of their sheets are copies of
+numbers MATLAB had already computed.
 
 | Sheet | Content | Origin |
 |---|---|---|
-| `Sheet1` | `age`, `dDraw`, `stdev`, `dDivc` | hand-compiled from GC-IRMS — **except `dDivc`**, which is computed by `icevolcorr` against LR04 |
+| `Sheet1` | `age`, `dDraw`, `stdev`, `dDivc` | hand-copied — `age`/`dDraw`/`stdev` from the raw instrument file, `dDivc` computed by `icevolcorr` against LR04 |
 | `dDp` | (samples × ensemble) δD<sub>p</sub> | output of `scripts/matlab/dDwax_data_processing_*.m`, pasted in |
 | `pJAS` | (samples × ensemble) %JAS | output of the same script's Bayesian regression, pasted in |
 
-So the round trip is: spreadsheet → MATLAB → back into the same spreadsheet, by hand. That is
-where silent drift lives, and the ensemble widths show it has already happened:
+So the round trip was: raw → MATLAB → *by hand* into a second spreadsheet → `fig3`. That hand
+step is where silent drift lived, and the ensemble widths show it had already happened:
 
 | File | `Sheet1` rows | `dDp` members | `pJAS` members |
 |---|---|---|---|
@@ -64,11 +71,6 @@ where silent drift lives, and the ensemble widths show it has already happened:
   were not touched. The pre-edit file is kept as
   `nh22p_processed_dD_handpicked_PRE-COLTRIM-20260806.xlsx`.
 
-**Worth fixing:** keep the hand entry for `Sheet1` — that is legitimate — but stop pasting
-computed ensembles back into it. Have the MATLAB `writematrix` the `dDp`/`pJAS` ensembles to
-their own files and have `fig3` read `Sheet1` from the spreadsheet and the ensembles from those.
-The manual paste is what produced the 1020-column error.
-
 ### 1b. `fig3` percentile indexing — resolved 2026-08-07
 
 `fig3_dDwax_timeseries.ipynb` used to hardcode `iters = 1000`, derive its shading indices from it,
@@ -85,6 +87,72 @@ particular failure cannot recur. `fig2`'s bands were verified bit-identical to t
 sorted-index version; the largest disagreement anywhere was 78 yr on a 137,000-yr axis, which is
 the expected index-vs-interpolation difference (index 3900 of 4000 is the 97.525th percentile,
 not the 97.5th).
+
+### 1c. What replaced it — `fig3` reads the `.mat` directly
+
+The fix turned out to need no new export step at all: **the `.mat` files already carry every
+field `fig3` reads** — `age`, `dDraw`, `stdev`, `dDivc`, `dDp`, `jas`, for both cores. So rather
+than have MATLAB `writematrix` the ensembles to a third location, `fig3` now reads the pipeline
+output where it already lands. The data flow is one-directional:
+
+```
+raw instrument .xls/.xlsx  ->  MATLAB  ->  data/processed/*_FAMEs_current.mat  ->  fig3
+```
+
+Two changes made that possible (both 2026-08-09):
+
+- `dDwax_data_processing_{nh22p,d480_d479}.m` now save **twice**: the dated archive copy as
+  before, plus a stable undated `*_FAMEs_current.mat`. `fig3` names the undated one, so no
+  figure can quietly end up on a year-old `.mat` because a date was left behind in the code.
+- `fig3` cell 1's six `pd.read_excel` calls became two `sio.loadmat` calls via a `load_fames()`
+  helper, which rebuilds the same `xr.Dataset` objects the rest of the notebook already
+  expected. Nothing downstream of cell 1 changed. `fig3` now imports no pandas and reads
+  nothing from `$PROXY_DATA_DIR`.
+
+**The drift this caught.** Re-running the MATLAB and comparing the DSDP sheet against it:
+
+| | NH22P | DSDP-480/479 |
+|---|---|---|
+| sheet date | 2026-08-06 | **2025-04-14** |
+| `age` | identical | **33 of 147 differ, ≤67 yr, all in the d479 half (107.8–152.4 ka)** |
+| `dDraw`, `stdev` | identical | identical |
+| `dDp` | identical (0.0000‰) | rigid offset, mean −0.12‰ |
+| `pJAS` | identical | **systematic +3.6 percentage points on all 147 rows** |
+
+`pJAS` is the decisive one: NH22P matched to 6e-14 while DSDP was off by a uniform +3.6, so the
+regression code and the `GoCregressionFINAL.mat` calibration had not changed — the DSDP sheet
+simply predated a re-run. **Nothing consumed it** (`pJAS` is loaded in `fig3` and never read
+again; the only other consumer is `deprecated/`), so no published number is affected.
+
+**Effect on the figures.** Verified by re-running `fig3` before and after:
+
+- `data/processed/timeslice_mean_proxy_dDraw.csv` — **byte-identical**. This is the file the
+  model-side notebooks read, and it is built from `dDraw` (unchanged) and timeslice membership
+  (verified: zero samples change window, no sample sits within 67 yr of a boundary).
+
+  > *Later the same day*, this file changed for an unrelated reason: `fig3` gained two timeslice
+  > windows and its error columns were renamed `_1serr` → `_stddev`. The header is no longer the
+  > one described above, but **every value carried over is still bit-identical** — the old
+  > `holocene_dD` column is now `late_holocene_dD` (both 0–4 ka). See `data/processed/README.md`
+  > §Columns. The byte-identity claim above remains true of the `.mat` repointing in isolation.
+- δD<sub>C30</sub> figure — changes only in the DSDP panel, only between 107 and 152 ka, and only
+  along *x*: the d479 age fix moving 33 points by ≤67 yr. The δD values are element-wise
+  identical, and the NH22P panel is pixel-identical.
+- δD<sub>p</sub> figure — the DSDP median moves by a **rigid common offset**, mean −0.12‰
+  (per-sample std 0.093‰, uncorrelated with age or δD<sub>raw</sub>). That is the expected
+  signature of the shared-ε design, not a bias: ε is one shared draw per Monte Carlo iteration,
+  so a single draw moves the whole curve by ~2.5‰ and the median inherits an SE of ~0.12‰. The
+  worst-case sample moves 0.33‰ against a 12.6‰ 2σ band — 2.6% of the band. NH22P's median moves
+  by exactly 0.0000‰, confirming MATLAB's fixed seed still reproduces bit-identically.
+
+> Note for future comparisons: "signs scattered both ways" is **not** a valid noise test for
+> these ensembles. A shared-ε draw shifts every sample the same direction by construction. The
+> test that distinguishes noise from bias is whether the shift is a rigid offset small compared
+> with the per-draw ε spread.
+
+**The spreadsheets are left in place, unmodified.** Their `dDp`/`pJAS` sheets are now a record of
+what was previously plotted. Stripping them is irreversible surgery on a hand-edited file and is
+a separate decision; there is no longer any reason to *update* them.
 
 ### 2. DSDP-480 age model — settled
 
@@ -168,11 +236,14 @@ Two answers, reconciled by `config/paths.env` — see `data/README.md`.
 
 - **Reproducing these results:** download the datasets below into the repo's own
   `data/` tree (`raw/`, `external/`, `interim/`, `processed/`). The tree is tracked; the data
-  is not. Set `PROXY_DATA_DIR=./data/raw` and `OBS_DATA_DIR=./data/external`.
-- **The author's machine:** the copies live on OneDrive under `~/OneDrive/data/{proxies,obs}`
-  and are staying there. The paths below are those locations.
+  is not. Set `PROXY_DATA_DIR=./data/raw`; `OBS_DATA_DIR` only needs to point at wherever you
+  keep IMERG.
+- **The author's machine:** proxy data is in `data/raw/` and external data in `data/external/`,
+  both inside the repo. Only IMERG is still on OneDrive, under `~/OneDrive/data/obs`.
 
-Either way, no script hardcodes a location.
+No script hardcodes a location, **with one exception**: `fig1` reaches IMERG by absolute path
+rather than through `$OBS_DATA_DIR`. That is a portability bug, left in place while the IMERG
+version is still being chosen.
 
 ## Proxy data — `$PROXY_DATA_DIR` → `data/raw/` (author: `~/OneDrive/data/proxies`)
 
@@ -188,9 +259,10 @@ Either way, no script hardcodes a location.
 | Bacon DSDP-480 | `Bacon_runs/DSDP480/` (`DSDP480_mcmc_new.csv`, `DSDP480.csv`, `DSDP480_165_ages.txt`) | `fig2`, `dDwax_data_processing_d480_d479.m` | ✅ settled — see section 2. `fig2` reads the MCMC ensemble, the MATLAB reads the ages file; verified 2026-08-07 to be the same run (medians agree to 0.5 yr) |
 | Sample depths | `DSDP-480-479/age_model/sample_depths_{480,479}.xlsx` | `fig2` | ✅ 152 rows for 480 (2390 cm appears **twice** — two samples at one depth), 34 for 479; both match their MCMC column counts |
 | Age-model tie points | `DSDP-480-479/age_model/{ShackletonHall82,KeigwinJones90}_d18O.xlsx`, `Byrne90_pollen.xlsx` | `fig2` | ✅ published sources, cited in filenames |
-| `fig3` processed records — NH22P | `eastern_pacific_cores/NH22P/data/nh22p_processed_dD_handpicked.xlsx` | `fig3` | ⚠️ `Sheet1` is hand-entered GC-IRMS data (primary, correct); the `dDp`/`pJAS` sheets are pasted-in computed ensembles that no longer match the scripts. See problem 1. |
-| `fig3` processed records — DSDP | `eastern_pacific_cores/DSDP-480-479/data/d480_d479_processed_dD.xlsx` | `fig3` | ⚠️ same structure |
-| NH22P autopicked variant | `.../nh22p_processed_dD_autopicked.xlsx` | nothing | ✅ software peak-picking; `fig3` deliberately uses the handpicked file instead |
+| ~~`fig3` processed records — NH22P~~ | `eastern_pacific_cores/NH22P/data/nh22p_processed_dD_handpicked.xlsx` | **nothing** | ✅ orphaned 2026-08-09 — `fig3` now reads `data/processed/nh22p_FAMEs_current.mat`. Left on disk unmodified as the record of what was plotted before. See section 1/1c. |
+| ~~`fig3` processed records — DSDP~~ | `eastern_pacific_cores/DSDP-480-479/data/d480_d479_processed_dD.xlsx` | **nothing** | ✅ same — orphaned 2026-08-09. Its `pJAS` sheet was the one that had drifted +3.6 points; nothing ever consumed it. |
+| NH22P autopicked variant | `.../nh22p_processed_dD_autopicked.xlsx` | nothing | ✅ software peak-picking; the handpicked record is the one carried forward |
+| **`fig3` proxy records** | `data/processed/{nh22p,Guaymas_d480_d479}_FAMEs_current.mat` | `fig3` | ✅ **current, as of 2026-08-09.** Written by `dDwax_data_processing_*.m` under a stable undated name alongside the dated archive copy. Carries `age`, `dDraw`, `stdev`, `dDivc`, `dDp` (×1000), `jas` (×4000). The Guaymas struct is already the 147-sample d480+d479 composite. |
 
 ### Derived intermediates — the `*_FAMEs_*.mat` sprawl
 
@@ -199,11 +271,18 @@ outputs, not inputs, but they are the only record of what each pipeline run prod
 several figures load them *by explicit date*, which is how a figure silently ends up on stale
 data.
 
-**The ones that matter** — these are what the `*_processed_dD*.xlsx` sheets were pasted from,
-so they are the provenance of every downstream number:
+**The ones that matter — now the undated pair in `data/processed/`:**
 
-- `NH22P/data/nh22p_FAMEs_18-Apr-2025.mat` — `dDp` 118 × 1000, `jas` 118 × 4000
-- `DSDP-480-479/data/Guaymas_d480_d479_FAMEs_14-Apr-2025.mat` — `dDp` 147 × 1000, `jas` 147 × 4000
+- `data/processed/nh22p_FAMEs_current.mat` — `dDp` 118 × 1000, `jas` 118 × 4000
+- `data/processed/Guaymas_d480_d479_FAMEs_current.mat` — `dDp` 147 × 1000, `jas` 147 × 4000
+
+These are what `fig3` reads (since 2026-08-09), and `dDwax_data_processing_*.m` rewrites them on
+every run, so "current" is true by construction rather than by remembering to update a date.
+The dated copies are still written beside them as the archive.
+
+Their predecessors — `nh22p_FAMEs_18-Apr-2025.mat` and
+`Guaymas_d480_d479_FAMEs_14-Apr-2025.mat` — are the provenance of every number published before
+that date, because they are what the `*_processed_dD*.xlsx` sheets were pasted from. Keep them.
 
 The newer `*_FAMEs_01-May-2025.mat` pair (from `dDp_epsilon_calculation.m`, `dDp_raw` at 2500
 members, per-core and unspliced) is **not** used by anything. Don't mistake the later date for
@@ -222,13 +301,40 @@ Variants that are **not** simple date bumps and need a decision:
 
 ---
 
-## Observational data — `$OBS_DATA_DIR` (`~/OneDrive/data/obs`)
+## Observational data
+
+**Moved into the repo on 2026-08-09.** OIPC and ETOPO5 now live in `data/external/` and are read
+from there, so they resolve identically whether or not `config/paths.env` has been sourced.
+`$OBS_DATA_DIR` is now down to a single dataset. `data/external/` holds every external input the
+proxy-side notebooks need **except IMERG**:
 
 | Dataset | Path | Read by | |
 |---|---|---|---|
-| OIPC monthly isoscape | `OIPC_monthly_data.nc` | `fig1`, `fig3` | ✅ treated as already flux-weighted — see `CLAUDE.md` |
-| ETOPO5 topography | `topography/obs.etopo5.zsurf.nc` | `fig1` | ✅ |
-| IMERG precipitation | `satellite/imerg/imerg.gn.timeseries.2001-2018.nc` | `fig1` | ✅ |
+| OIPC monthly isoscape | `data/external/OIPC_monthly_data.nc` (397 MB) | `fig1` | ✅ treated as already flux-weighted — see `CLAUDE.md`. **Its grid registration is wrong in the source file** and `fig1` corrects it; see the note below. Read by `fig1` only as of 2026-08-09: the OIPC isoscape maps moved there from `fig3`, and they were `fig3`'s only use of it. |
+| ETOPO5 topography | `data/external/obs.etopo5.zsurf.nc` (36 MB) | `fig1` | ✅ |
+| LR04 benthic stack | `data/external/lr04.mat` | `fig2`, `fig3`, MATLAB | ✅ see the row in the proxy table above |
+| GoC δD→%JAS calibration | `data/external/GoCregressionFINAL.mat` | `dDwax_data_processing_*.m` | ⚠️ provenance still undocumented |
+
+> **Duplicates.** OIPC and ETOPO5 also still exist at their old `$OBS_DATA_DIR` locations
+> (`OIPC_monthly_data.nc`, `topography/obs.etopo5.zsurf.nc`) — 433 MB duplicated. Nothing reads
+> those copies any more. Note the repo copies are **gitignored, so git does not back them up**;
+> the OneDrive originals currently are the backup. Decide whether to keep them on that basis
+> rather than deleting them as mere clutter.
+
+> **OIPC grid registration.** The file's coordinates place the field ~0.5° east and ~0.25° south
+> of where it belongs — plotted raw, the land mask sits southeast of the coastline. `fig1` applies
+> `lon − 0.50, lat + 0.25` before subsetting. Measured against the Natural Earth 50 m polygons
+> cartopy draws: coastal-cell agreement 0.82 → 0.96, with the same shift recovered independently
+> from the Gulf of Mexico, the US Pacific NW, northern South America and the western
+> Mediterranean, so it is a global property of the file. The offsets are exactly 6 and 3 cells of
+> the 1/12° grid. **This is an empirical registration, not a documented correction** — the root
+> cause in the source file is unknown. If a corrected OIPC file appears, drop the shift.
+
+### `$OBS_DATA_DIR` (`~/OneDrive/data/obs`) — IMERG only
+
+| Dataset | Path | Read by | |
+|---|---|---|---|
+| IMERG precipitation | `satellite/imerg/imerg.gn.timeseries.2001-2018.nc` | `fig1` | ⚠️ deliberately still outside the repo while the version to use is decided. **`fig1` reaches it by absolute path, not via `$OBS_DATA_DIR`**, so `obspath` is defined but unused in `fig1` — wiring it up would close the last hardcoded path in the proxy-side notebooks. A second candidate, `imerg_V07_19980101-20241231_monthly_gn.nc`, sits beside it in a disabled block in the same cell. `fig3` no longer defines `obspath` at all: it reads nothing from outside the repo. |
 | IMERG precipitation (model side) | `$WORK_DATA_DIR/obs_data/obs.imerg.precip.2001-2018.nc` → derived `imerg.gn.2001-2018.climo.nc` | `LGM_analyses.ipynb` | ⚠️ **2001–2018 is the project-wide baseline** (decided 2026-08-05). The notebook has been updated from 2011–2018, but **the derived climo has not been rebuilt** — the regeneration block in that cell must be run once on Casper, and `obs.imerg.precip.2001-2018.nc` must exist there. Until then the cell will not load. |
 
 ---

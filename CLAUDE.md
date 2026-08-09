@@ -39,9 +39,12 @@ function by Donald Shea, and `ebisuzaki` implements a published method.
 > `data/processed/timeslice_mean_proxy_dDraw.csv` to the last digit. Both cores are built from
 > `dDraw` and from the canonical `Bacon_runs/DSDP480` age model.
 >
-> One residual, pre-existing and harmless: d479 ages differ by ≤67 yr from every stored vintage
-> back to 2022, because `DSDP479_113_ages.txt` was re-run and `d479_FAMEs_*.mat` never
-> regenerated. Zero samples change timeslice membership.
+> **Resolved 2026-08-09.** The ≤67 yr d479 age residual was between the *spreadsheets* and the
+> `.mat`, not between the `.mat` and `DSDP479_113_ages.txt` — the 2026-08-06 rerun had already
+> picked up the re-run ages, and the current `.mat` matches that file to 0.000000 ka. What
+> lagged was `d480_d479_processed_dD.xlsx`, dated 2025-04-14, which `fig3` read until it was
+> repointed at the `.mat`. Zero samples changed timeslice membership, so no published number
+> moved. See `DATA_MANIFEST.md` §1c.
 
 ## Outstanding cleanup
 
@@ -72,12 +75,12 @@ width (`iters = 4000` / `1000`) and index into a sorted array. Both now use
 `np.nanpercentile(..., [2.5, 16, 84, 97.5])` over the ensemble axis, which is correct at any
 width. Don't reintroduce the index form.
 
-If the ensembles are ever regenerated, paste them into `*_processed_dD*.xlsx` leaving `Sheet1`
-(the hand-entered GC-IRMS data) alone, re-run `fig3` to regenerate `data/processed/*.csv`, push,
-and only then does Casper pull.
-
-Better than repeating that manual paste: have the MATLAB `writematrix` the two ensembles to
-their own files and repoint `fig3`. The paste is what produced the 1020-column error.
+**The spreadsheet round trip is closed — done 2026-08-09.** To regenerate the ensembles: re-run
+the two `dDwax_data_processing_*.m` scripts, re-run `fig3` to regenerate `data/processed/*.csv`,
+push, and only then does Casper pull. **There is no manual paste step any more.** The scripts
+save twice — the dated archive copy plus a stable undated `data/processed/*_FAMEs_current.mat` —
+and `fig3` reads the undated pair directly. Do not paste ensembles back into
+`*_processed_dD*.xlsx`; nothing reads those sheets now. See `DATA_MANIFEST.md` §1c.
 
 ### Known duplication and rough edges
 
@@ -108,8 +111,8 @@ their own files and repoint `fig3`. The paste is what produced the 1020-column e
   and sort by age. The saved `Guay` struct is already the 147-sample composite.
 - **The NH22P `dDp` sheet was 1020 wide until 2026-08-06** — twenty foreign columns ahead of the
   canonical 1000, from the manual Excel paste. Trimmed; the sheet now equals
-  `nh22p_FAMEs_18-Apr-2025.mat` exactly. The concrete argument for having the MATLAB
-  `writematrix` the ensembles to their own files rather than pasting them by hand.
+  `nh22p_FAMEs_18-Apr-2025.mat` exactly. This was the concrete argument for cutting the paste
+  out entirely, which is what happened on 2026-08-09.
 - **The two live pipeline scripts read `config/paths.env`; the rest do not.**
   `dDwax_data_processing_{nh22p,d480_d479}.m` resolve `PROXY_DATA_DIR` from the environment and
   fall back to parsing the file directly — necessary because MATLAB launched from the Dock does
@@ -121,10 +124,12 @@ their own files and repoint `fig3`. The paste is what produced the 1020-column e
 - **`pJAS_calculation.m` is not self-contained** — it expects `X` and `Y` to already exist in the
   workspace, so it silently uses whatever is lying around if the precondition is wrong. Make it
   a function.
-- **The spreadsheet round trip.** `Sheet1` of `*_processed_dD*.xlsx` is legitimate hand-entered
-  GC-IRMS data, but the `dDp`/`pJAS` sheets beside it are computed ensembles pasted back in by
-  hand. That is how they fell out of sync with `iters`. Have the MATLAB write ensembles to their
-  own files instead.
+- ~~**The spreadsheet round trip.**~~ **Fixed 2026-08-09.** `fig3` reads
+  `data/processed/*_FAMEs_current.mat`, not `*_processed_dD*.xlsx`. The `.mat` already carried
+  every field `fig3` needed, so no new export was required — only a stable undated filename.
+  The spreadsheets are untouched on disk and now read by nothing; the DSDP one had already
+  drifted (its `pJAS` off by a uniform +3.6 points, its ages by a year's vintage). `DATA_MANIFEST.md`
+  §1c has the before/after numbers.
 - **`pressureRegrid_LIG.ncl` outputs PI-climatology data** despite its name, overlapping
   `pressureRegrid_PI_climo.ncl`. Confirm which produced the data in use before relying on either.
 - **`scripts/py_functions/plot_tools.py` is imported by nothing** — superseded by
@@ -132,7 +137,9 @@ their own files and repoint `fig3`. The paste is what produced the 1020-column e
   layer invites divergence.
 - **Stop loading `.mat` by hardcoded date.** Several figure scripts name a specific
   `*_FAMEs_<date>.mat`, which is how a figure quietly ends up on year-old data. There are 25 of
-  them spanning 2022–2025.
+  them spanning 2022–2025. The pattern to follow is the one `fig3` now uses: the MATLAB writes a
+  stable `*_FAMEs_current.mat` beside the dated archive copy, and the reader names the stable
+  one. Still to do for the remaining MATLAB figure scripts, all of which are in `deprecated/`.
 
 ### Don't "fix" these — they are deliberate
 
@@ -203,10 +210,13 @@ numerical difference impossible to attribute.
 
 Runs on the laptop only. Reads from `$PROXY_DATA_DIR` and `$OBS_DATA_DIR` (OneDrive).
 
-**Pipeline order** (each stage hands off by file, not by call — MATLAB writes `.mat`/`.xlsx`
-into the OneDrive proxy tree and the notebooks read those):
+**Pipeline order** (each stage hands off by file, not by call — MATLAB writes `.mat` into
+`data/processed/` and the notebooks read those):
 
 1. `dDwax_data_processing_{nh22p,d480_d479}.m` — process raw δD<sub>C30</sub> measurements.
+   Reads the raw instrument files (`NH22P/dD_nh22p.xls`, `DSDP-480-479/d480-479_dD.xlsx`) under
+   `$PROXY_DATA_DIR`; writes `data/processed/*_FAMEs_{<date>,current}.mat`. **`fig3` reads the
+   `current` pair** — everything it plots comes from here, with no spreadsheet in between.
 2. `dDp_epsilon_calculation.m` — a δD<sub>p</sub>-only Monte Carlo (2500 iterations) over C3/C4
    endmembers → fraction C4 → apparent fractionation ε → δD<sub>p</sub>. One `%%` section per
    core. **Its output is a dead end — nothing downstream reads it.** See the note below.
@@ -250,10 +260,17 @@ only; **they do not describe the live pipeline.**
 - **Ensembles are carried, not collapsed.** δD<sub>p</sub> and %JAS are `(age × ensemble)`
   arrays; bands are percentiles of the *sorted* ensemble (2.5/97.5 for 2σ, 16/84 for 1σ) and
   the central line is the **median**, not the mean. Bacon age models are the same shape.
-- **Timeslice windows differ between figures on purpose** — see `data/processed/README.md`. The
-  CSV exports use Holocene 0–4, LGM 18–24, LIG 117–130, PGM 135–150 ka; `fig3`'s interglacial
-  bands are HOL 0–11.7, LIG 117–130; the MATLAB box plots use Holocene <11.7, LGM 11.7–27.
-  Do not unify them.
+- **Timeslice windows differ between figures on purpose** — see `data/processed/README.md`. As
+  of 2026-08-09 the CSV export carries all five `fig3` windows: late-holocene 0–4,
+  holocene 0–11.7, lgm 18–24, lig 117–130, pgm 135–150 ka. `fig3`'s interglacial bands are
+  HOL 0–11.7, LIG 117–130; the MATLAB box plots use Holocene <11.7, LGM 11.7–27. Do not unify
+  them, and in particular **do not collapse the two Holocene windows** — the model notebooks
+  difference against `late_holocene_dD` (0–4 ka), which is the window every published anomaly
+  reflects. Switching them to `holocene_dD` (0–11.7 ka) flips the sign of the DSDP-480/479 LIG
+  anomaly.
+- **CSV error columns are `_stddev`, not `_1serr`** (renamed 2026-08-09, no values changed).
+  They are `.std(dim=['age'])` over the samples inside each window — the spread of the data,
+  not the standard error of the mean. Don't rename them back or divide by √n.
 - **OIPC is treated as already flux-weighted**, so seasonal isotope means are plain unweighted
   month means. IMERG is converted mm/hr → mm/day with `* 24`.
 - Box plots constrain whiskers to the 5th/95th percentiles, not Tukey 1.5·IQR.
