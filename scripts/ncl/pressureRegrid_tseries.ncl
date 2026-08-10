@@ -5,13 +5,11 @@ load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
 begin
 
-work_data_dir = getenv("WORK_DATA_DIR")
+repo_root = getenv("REPO_ROOT")
 
-; case, file-tag, output-subdir -- parallel arrays, same shape as
-; subset_deglacial_tseries.sh's CASE_TAG/OUT_SUBDIR
-cases       = (/ "pi", "lgm" /)
-file_tags   = (/ "iPI.01", "i21ka.03" /)
-out_subdirs = (/ "PI", "LGM" /)
+; case, file-tag -- parallel arrays, same shape as subset_tseries.sh's CASE_TAG
+cases     = (/ "pi", "lgm" /)
+file_tags = (/ "iPI.01", "i21ka.03" /)
 
 vars3d = (/ "U", "V", "OMEGA", "Q", "Z3" /)
 
@@ -20,25 +18,30 @@ P0mb   = 1000.
 interp = 2
 extrap = False
 
-do ic = 0, dimsizes(cases)-1
-    tag    = file_tags(ic)
-    outdir = work_data_dir + "/" + out_subdirs(ic) + "/tseries_0801-0900"
+; Flat, not per-case subdirectories -- the case tag in the filename (below) is what
+; distinguishes PI from LGM output. Matches notebooks/LGM_analyses.ipynb's file-path cell.
+raw_dir     = repo_root + "/data/raw"
+interim_dir = repo_root + "/data/interim"
+system("mkdir -p " + interim_dir)
 
-    ps_file = addfile(outdir + "/PS." + tag + ".0801-0900.tseries.nc", "r")
+do ic = 0, dimsizes(cases)-1
+    tag = file_tags(ic)
+
+    ps_file = addfile(raw_dir + "/PS." + tag + ".0801-0900.tseries.nc", "r")
     PS      = ps_file->PS
 
     do iv = 0, dimsizes(vars3d)-1
         var = vars3d(iv)
         print("Regridding " + cases(ic) + "/" + var + " to pressure levels...")
 
-        ifile = addfile(outdir + "/" + var + "." + tag + ".0801-0900.tseries.nc", "r")
+        ifile = addfile(raw_dir + "/" + var + "." + tag + ".0801-0900.tseries.nc", "r")
         field = ifile->$var$
         hyam  = ifile->hyam
         hybm  = ifile->hybm
 
         fieldonP = vinth2p(field, hyam, hybm, pnew, PS, interp, P0mb, 1, extrap)
 
-        ofile_path = outdir + "/" + var + "_plev.nc"
+        ofile_path = interim_dir + "/" + var + "." + tag + ".0801-0900.tseries.plev.nc"
         system("rm -f " + ofile_path)
         ncdf = addfile(ofile_path, "c")
 
@@ -61,7 +64,6 @@ do ic = 0, dimsizes(cases)-1
         delete(ncdf)
     end do
     delete(PS)
-    delete(ps_file)
 end do
 
 end

@@ -16,7 +16,7 @@ START_REC=9600
 END_REC=10799
 
 # Notebook's raw_varns (24) plus PS (25th, subset-only -- needed by
-# pressureRegrid_deglacial_tseries.ncl for vinth2p, never loaded directly by the notebook).
+# pressureRegrid_tseries.ncl for vinth2p, never loaded directly by the notebook).
 VARS="PRECRC_H2Or PRECRL_H2OR PRECSC_H2Os PRECSL_H2OS PRECRC_HDOr PRECRL_HDOR PRECSC_HDOs PRECSL_HDOS \
 PRECRC_H216Or PRECRL_H216OR PRECSC_H216Os PRECSL_H216OS PRECRC_H218Or PRECRL_H218OR PRECSC_H218Os PRECSL_H218OS \
 PRECC PRECL TS U V OMEGA Q Z3 PSL PS"
@@ -24,13 +24,15 @@ PRECC PRECL TS U V OMEGA Q Z3 PSL PS"
 declare -A CASE_DIR=( [pi]="$PI_CASE_DIR" [lgm]="$LGM_CASE_DIR" )
 declare -A CASE_PREFIX=( [pi]="b.e12.B1850C5.f19_g16.iPI.01" [lgm]="b.e12.B1850C5.f19_g16.i21ka.03" )
 declare -A CASE_TAG=( [pi]="iPI.01" [lgm]="i21ka.03" )
-declare -A OUT_SUBDIR=( [pi]="PI" [lgm]="LGM" )
+
+# Flat, not per-case subdirectories -- the case tag in the filename (below) is what
+# distinguishes PI from LGM output. Matches notebooks/LGM_analyses.ipynb's file-path cell.
+OUTDIR="$REPO_ROOT/data/raw"
+mkdir -p "$OUTDIR"
 
 for case in pi lgm; do
     SRC_DIR="${CASE_DIR[$case]}/atm/proc/tseries/monthly"
     PREFIX="${CASE_PREFIX[$case]}"
-    OUTDIR="$WORK_DATA_DIR/${OUT_SUBDIR[$case]}/tseries_0801-0900"
-    mkdir -p "$OUTDIR"
 
     for VAR in $VARS; do
         IFILE="$SRC_DIR/$VAR/$PREFIX.cam.h0.$VAR.0001-0900.nc"
@@ -47,4 +49,4 @@ for case in pi lgm; do
     done
 done
 
-echo "Done. Output: \$WORK_DATA_DIR/{PI,LGM}/tseries_0801-0900/"
+echo "Done. Output: \$REPO_ROOT/data/raw/"

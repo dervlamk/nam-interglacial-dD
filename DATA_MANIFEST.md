@@ -345,17 +345,19 @@ proxy-side notebooks need **except IMERG**:
 |---|---|---|---|
 | PI control | `b.e12.B1850C5.f19_g16.iPI.01` | `$PI_CLIMO_DIR` = `/glade/campaign/univ/uazn0018/jiangzhu/archive/.../climo` | ✅ |
 | LIG 127 ka | `b.e12.B1850C5.f19_g16.iLIG127k.001` | `$LIG_CASE_DIR` = `/glade/campaign/cesm/development/palwg/LastInterglacial/iCESM1.2/...` | ✅ |
-| LGM 21 ka | `b.e12.B1850C5.f19_g16.i21ka.03` | `$LGM_CASE_DIR` = `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/...` | ✅ located 2026-08-09. Per-variable monthly tseries (years 0001-0900), not a climo dir — subset via `scripts/nco/subset_deglacial_tseries.sh`. |
-| PI per-year tseries | `b.e12.B1850C5.f19_g16.iPI.01` | `$PI_CASE_DIR` = same `iCESM1.2-DeglacialSlice` tree, sibling of `LGM_CASE_DIR` | ✅ located 2026-08-09. Distinct from `PI_CLIMO_DIR` above (that path is climo-only). |
+| LGM 21 ka | `b.e12.B1850C5.f19_g16.i21ka.03` | `$LGM_CASE_DIR` = `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/...` | ✅ located 2026-08-09. Per-variable monthly tseries (years 0001-0900), not a climo dir — subset via `scripts/nco/subset_tseries.sh` into `data/raw/tseries/LGM/tseries_0801-0900/`. |
+| PI per-year tseries | `b.e12.B1850C5.f19_g16.iPI.01` | `$PI_CASE_DIR` = same `iCESM1.2-DeglacialSlice` tree, sibling of `LGM_CASE_DIR` | ✅ located 2026-08-09. Distinct from `PI_CLIMO_DIR` above (that path is climo-only). Subset via the same script into `data/raw/tseries/PI/tseries_0801-0900/`. |
 | LIG ocean timeseries | — | `$LIG_TIMESERIES_JS_DIR` = `/glade/scratch/jschnaubelt/...` | ⚠️ a **collaborator's scratch space**. Scratch is purged on a timer; this will disappear without warning. Copy what is needed to `/glade/work` or campaign storage. |
 
 All three cases are iCESM1.2 `f19_g16` (96×144 atmosphere, gx1v6 ocean). The LGM climatology
 `LGM_analyses.ipynb` reads is years 0801–0900; the *existing* PI climatology it reads is years
 0400–0499 (`$WORK_DATA_DIR/PI/b.e12.B1850C5.f19_g16.iPI.01.400-499.climo.nc`), not 0801–0900 —
 correcting a previous version of this line that claimed all three cases shared the 0801–0900
-window. As of the per-year subsetting work (see `scripts/nco/subset_deglacial_tseries.sh`), the
-notebook rebuilds its own PI/LGM climatologies from years 0801–0900 for both cases, so this
-window mismatch no longer propagates into the notebook's figures going forward.
+window. As of the per-year subsetting work (see `scripts/nco/subset_tseries.sh` and
+`scripts/ncl/pressureRegrid_tseries.ncl`, which land in `data/raw/tseries/` and
+`data/interim/tseries/` respectively — not `$WORK_DATA_DIR`), the notebook rebuilds its own
+PI/LGM climatologies from years 0801–0900 for both cases, so this window mismatch no longer
+propagates into the notebook's figures going forward.
 
 ---
 
