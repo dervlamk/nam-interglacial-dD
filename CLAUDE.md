@@ -191,15 +191,18 @@ numerical difference impossible to attribute.
     reorganization work and hasn't been resolved; confirm which one you mean before relying on it.
   - `pressureRegrid_tseries.ncl` — same `vinth2p` regrid, but for the LGM/PI per-year subset (see
     `subset_tseries.sh` below), and the one script in this directory that reads/writes this
-    repo's own `data/raw/tseries/` and `data/interim/tseries/` (via `$REPO_ROOT`) instead of
+    repo's own `data/raw/` and `data/interim/` (via `$REPO_ROOT`) instead of
     `$SCRATCH_DIR`/`$WORK_DATA_DIR` like its siblings above — a deliberate, not yet reconciled,
-    convention split.
+    convention split. Both cases' files sit flat in each directory (no per-case subdirectory),
+    named `{var}.{tag}.0801-0900.tseries.nc` (raw, hybrid-sigma levels, `subset_tseries.sh`'s
+    output) and `{var}.{tag}.0801-0900.tseries.plev.nc` (interim, this script's output), where
+    `tag` is `iPI.01` or `i21ka.03`.
 - `scripts/nco/` — NCO (`ncks`/`ncap2`) wrappers for isotope post-processing (extracting isotope
   tracer variables, integrating isotope ratios over levels). Require `module load nco`; source
   `config/paths.env` themselves (fail with an explicit error if it doesn't exist yet).
   - `subset_tseries.sh` is the exception to that isotope-post-processing description: it
     hyperslabs 25 raw variables (years 801-900) out of `$LGM_CASE_DIR`/`$PI_CASE_DIR` and writes
-    into `data/raw/tseries/`, this repo's own tree, not `$WORK_DATA_DIR`.
+    into `data/raw/`, this repo's own tree, not `$WORK_DATA_DIR`.
 - `data/processed/*.csv` — timeslice-mean proxy δD records (Holocene, LGM, LIG) by core, with lon/lat
   and 1-sigma error, used in the notebooks to validate model output against real-world records.
   Two files are actually read, by different notebooks, on purpose: `LGM_analyses.ipynb` reads
@@ -319,7 +322,7 @@ are on and leave the other unset:
   `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/b.e12.B1850C5.f19_g16.{i21ka.03,iPI.01}`
   — per-variable monthly tseries (years 0001-0900, one file per variable), distinct from the
   climatology-only `PI_CLIMO_DIR` above. See `scripts/nco/subset_tseries.sh`, which writes the
-  subset into this repo's own `data/raw/tseries/` (not `$WORK_DATA_DIR`) using `$REPO_ROOT` —
+  subset into this repo's own `data/raw/` (not `$WORK_DATA_DIR`) using `$REPO_ROOT` —
   see `data/README.md`.
 - **Laptop:** `PROXY_DATA_DIR`, `OBS_DATA_DIR`, `FIG_OUTPUT_DIR`.
 
