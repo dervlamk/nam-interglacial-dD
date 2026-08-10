@@ -33,12 +33,13 @@ functions outside this repo). That is expected.
 
 ```
 .
-├── LGM_analyses.ipynb                          # MODEL: LGM vs. PI analysis and figures
-├── LIG127k_analyses_PALEOCALADJUSTED.ipynb     # MODEL: LIG vs. PI (calendar-adjusted, canonical)
-├── LIG127k_analyses_NOT_paleocaladjust.ipynb   # MODEL: LIG vs. PI (calendar not adjusted)
-├── fig1_swna_modern_climate.ipynb              # PROXY: modern SW-NA climatology (OIPC/IMERG/ETOPO5)
-├── fig2_dsdp480-479_agemodel.ipynb             # PROXY: Bacon age-depth models + the 480/479 splice
-├── fig3_dDwax_timeseries.ipynb                 # PROXY: δD records vs. LR04; writes data/processed/*.csv
+├── notebooks/
+│   ├── LGM_analyses.ipynb                      # MODEL: LGM vs. PI analysis and figures
+│   ├── LIG127k_analyses_PALEOCALADJUSTED.ipynb # MODEL: LIG vs. PI (calendar-adjusted, canonical)
+│   ├── swna_modern_climatology.ipynb           # PROXY: modern SW-NA climatology (OIPC/IMERG/ETOPO5)
+│   ├── dsdp-480-479_age-model.ipynb            # PROXY: Bacon age-depth models + the 480/479 splice
+│   ├── dDwax_timeslice-means_timeseries.ipynb  # PROXY: δD records vs. LR04; writes data/processed/*.csv
+│   └── outputs/                                # Figures the model notebooks write (HPC_FIG_OUTPUT_DIR default)
 ├── environment.yml                             # nam_dD_lig conda environment spec (both halves)
 ├── config/
 │   └── paths.env.example                       # Template for local path overrides (copy to paths.env)
@@ -48,21 +49,39 @@ functions outside this repo). That is expected.
 │   ├── interim/                                #   Intermediate pipeline products
 │   └── processed/                              #   Analysis-ready; the timeslice proxy δD CSVs live here
 ├── deprecated/                                 # Superseded code, frozen for provenance — reference only
-├── tools/                                      # Repo tooling (notebook-output stripping)
+├── tools/                                      # Repo tooling (notebook-output stripping, figure sync)
 └── scripts/
     ├── matlab/                                 # PROXY pipeline: dDwax → dDp → %JAS (laptop only)
     ├── ncl/                                    # Concatenate/regrid raw CESM output into intermediate netCDFs
     ├── nco/                                    # NCO (ncks/ncap2) isotope post-processing
-    ├── py_functions/                           # Shared xarray/cartopy plotting & data helpers
+    ├── py_functions/                           # Shared xarray/cartopy plotting, data, iCESM & stats helpers
     └── claude_casper.sh                        # Interactive Casper compute node (stay off login nodes)
 ```
 
-### Which LIG notebook to use
+The notebooks are launched from `notebooks/`, not the repo root — they resolve
+`scripts/py_functions` and `data/` relative to `..`.
 
-`LIG127k_analyses_PALEOCALADJUSTED.ipynb` is the canonical version — paleoclimate orbital-forcing
-runs shift month boundaries relative to a modern fixed calendar, and this notebook corrects for
-that before computing monthly climatologies. `LIG127k_analyses_NOT_paleocaladjust.ipynb` is kept
-for comparison but should not be treated as the primary result.
+### The two model notebooks
+
+`LGM_analyses.ipynb` and `LIG127k_analyses_PALEOCALADJUSTED.ipynb` are built the same way and
+share their machinery (`scripts/py_functions/icesm_funcs.py`, `stats_funcs.py`): per-year monthly
+output for both cases, precipitation-weighted isotope fields, JAS means, and differences masked
+where a Welch's t-test says the change is not significant at p ≤ 0.05. Both difference against
+the same PI baseline, `iPI.01` years 801–900.
+
+They differ in two ways, both forced by what data exists:
+
+- **The LIG output is calendar-adjusted.** Paleoclimate orbital forcing shifts month boundaries
+  relative to a modern fixed calendar, so a raw LIG "July" does not cover the same slice of the
+  seasonal cycle as a PI July. PaleoCalAdjust corrects this. The adjusted files carry *paleo*
+  month boundaries on their time axis, so months are assigned by record position, never read off
+  the timestamps — see the LIG notebook's header cell.
+- **The LIG has no dynamics panel.** Only 19 variables were calendar-adjusted (the 16 isotope
+  tracers plus `PRECC`, `PRECL`, `TS`); there is no adjusted `U`/`V`/`OMEGA`, so the LIG figure
+  shows ΔTS where the LGM figure shows Δω₅₀₀ and 850 mb winds.
+
+`deprecated/LIG127k_analyses_NOT_paleocaladjust.ipynb` is the unadjusted version, kept for
+comparison only.
 
 ## Data pipeline
 

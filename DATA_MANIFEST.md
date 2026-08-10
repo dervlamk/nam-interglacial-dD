@@ -344,7 +344,8 @@ proxy-side notebooks need **except IMERG**:
 | Case | Run ID | Path | |
 |---|---|---|---|
 | PI control | `b.e12.B1850C5.f19_g16.iPI.01` | `$PI_CLIMO_DIR` = `/glade/campaign/univ/uazn0018/jiangzhu/archive/.../climo` | ✅ |
-| LIG 127 ka | `b.e12.B1850C5.f19_g16.iLIG127k.001` | `$LIG_CASE_DIR` = `/glade/campaign/cesm/development/palwg/LastInterglacial/iCESM1.2/...` | ✅ |
+| LIG 127 ka | `b.e12.B1850C5.f19_g16.iLIG127k.001` | `$LIG_CASE_DIR` = `/glade/campaign/cesm/community/palwg/LastInterglacial/iCESM1.2/...` | ✅ **moved 2026-08-10** — was under `.../cesm/development/palwg/...`, which no longer exists. Run is 501 years (`000101-050112`); per-variable monthly tseries in 50-year chunks. Branched from `iPI.01` at year 901 (`initial_file` attr). |
+| LIG 127 ka, calendar-adjusted | as above | `$LIG_ADJUSTED_DIR` = `/glade/work/$USER/PaleoCalAdjust/data/nc_files/adjusted_files` | ✅ what `LIG127k_analyses_PALEOCALADJUSTED.ipynb` actually reads. See §3 below. |
 | LGM 21 ka | `b.e12.B1850C5.f19_g16.i21ka.03` | `$LGM_CASE_DIR` = `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/...` | ✅ located 2026-08-09. Per-variable monthly tseries (years 0001-0900), not a climo dir — subset via `scripts/nco/subset_tseries.sh` into `data/raw/tseries/LGM/tseries_0801-0900/`. |
 | PI per-year tseries | `b.e12.B1850C5.f19_g16.iPI.01` | `$PI_CASE_DIR` = same `iCESM1.2-DeglacialSlice` tree, sibling of `LGM_CASE_DIR` | ✅ located 2026-08-09. Distinct from `PI_CLIMO_DIR` above (that path is climo-only). Subset via the same script into `data/raw/tseries/PI/tseries_0801-0900/`. |
 | LIG ocean timeseries | — | `$LIG_TIMESERIES_JS_DIR` = `/glade/scratch/jschnaubelt/...` | ⚠️ a **collaborator's scratch space**. Scratch is purged on a timer; this will disappear without warning. Copy what is needed to `/glade/work` or campaign storage. |
@@ -358,6 +359,49 @@ window. As of the per-year subsetting work (see `scripts/nco/subset_tseries.sh` 
 `data/interim/tseries/` respectively — not `$WORK_DATA_DIR`), the notebook rebuilds its own
 PI/LGM climatologies from years 0801–0900 for both cases, so this window mismatch no longer
 propagates into the notebook's figures going forward.
+
+**Both model notebooks now share one PI baseline** (2026-08-10): `iPI.01` years 0801–0900, the
+per-year files in `data/raw/`. `LIG127k_analyses_PALEOCALADJUSTED.ipynb` previously differenced
+against the PI *climatology* files in `$WORK_DATA_DIR/PI/` (years 0400–0499, no per-year data and
+therefore no significance testing possible). 0801–0900 is also the century immediately before the
+LIG run branched off `iPI.01` at year 901.
+
+### 3. The calendar-adjusted LIG files
+
+Paleoclimate orbital forcing shifts month boundaries relative to a modern fixed calendar, so a raw
+LIG "July" mean covers a different slice of the seasonal cycle than a PI July does. PaleoCalAdjust
+corrects for this by interpolating monthly means to pseudo-daily values and re-integrating over the
+paleo month boundaries.
+
+| | |
+|---|---|
+| Program | PaleoCalAdjust v1.1, `cal_adjust.f90` (Bartlein & Shafer 2019, *Geosci. Model Dev.* 12, 3889–3913) |
+| Local copy | `$WORK_DATA_DIR/PaleoCalAdjust/` (source in `f90/`, not vendored into this repo) |
+| Info file | `$WORK_DATA_DIR/PaleoCalAdjust/data/info_files/cal_adj_info_lig127ka.csv` |
+| Input | `$WORK_DATA_DIR/LIG/tseries_last_100_yrs/{atm.2d.vars,dh.precIsotopes,o.precIsotopes}.iLIG127k.tseries.nc` — the run's last 100 years, 401–500 |
+| Output | `$LIG_ADJUSTED_DIR/{varn}_Amon_CESM1.2_LIG127k_146031-182500_cal_adj.nc`, 1200 monthly records each. The number pair is days since year 0, i.e. years 401–500. |
+| Settings | age 127 ka, `noleap`, Harzallah pseudo-daily interpolation, `match_mean=TRUE`, `tol=0.01`, no negative-value clipping |
+| Written | 2025-04-11 |
+
+**19 variables were adjusted:** the 16 precipitation isotope tracers (`PREC{RC,RL,SC,SL}_{H2O,HDO,H216O,H218O}`)
+plus `PRECC`, `PRECL`, `TS`. The info file also carries rows for `T`, `U`, `V` and `OMEGA` — but no
+adjusted output for them exists. That gap is why the LIG figure has a ΔTS panel where the LGM
+figure has Δω₅₀₀ and 850 mb winds. Closing it means re-running `cal_adjust.f90` for those rows
+plus an adjusted `PS`, then a `vinth2p` regrid to pressure levels; `cal_adjust.f90` does support
+4-D fields, so nothing blocks it but the work.
+
+**Months are assigned by record position, not read from the timestamps.** The adjusted files carry
+*paleo* month boundaries on their time axis; decoded, year 401 reads `0401-01-27, 0401-02-28,
+0401-03-31, 0401-05-01 05:36, ...`, so April falls five and a half hours into May and `.dt.month`
+returns **no April and two Mays** (counts: month 4 → 0, month 5 → 200). The notebook used to nudge
+the axis back two days to repair this; since 2026-08-10 it assigns months positionally instead,
+which is what `cal_adjust.f90` guarantees (exactly twelve records per year, paleo Jan–Dec). See
+`assign_paleocal_month_year()` in `scripts/py_functions/icesm_funcs.py`, and the assertion in the
+notebook's processing cell that fails if a re-adjusted file ever breaks that assumption.
+
+There is a stray lowercase `precc_Amon_..._cal_adj.nc` beside the canonical `PRECC_...` file, and a
+matching unadjusted `precc_...nc` in `tseries_last_100_yrs/`. Nothing reads either; they look like
+artifacts of a test run.
 
 ---
 

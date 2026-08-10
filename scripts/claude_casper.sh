@@ -32,7 +32,7 @@ ACCOUNT="${ACCOUNT:-UAZN0034}"
 QUEUE="${QUEUE:-casper}"
 NCPUS="${NCPUS:-4}"
 MEM="${MEM:-32GB}"
-WALLTIME="${WALLTIME:-04:00:00}"
+WALLTIME="${WALLTIME:-12:00:00}"
 PRIORITY="${PRIORITY:-economy}"        # economy is cheapest
 
 echo "Requesting interactive Casper session:"

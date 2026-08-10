@@ -30,7 +30,7 @@ FIGURES=(
   "dsdp_480-479.agemodel.pdf|notebooks/dsdp-480-479_age-model.ipynb"
   "dDp_timeseries_stacked.pdf|notebooks/dDwax_timeslice-means_timeseries.ipynb"
   "LGM-PI_icesm1p2_diffs.png|notebooks/LGM_analyses.ipynb"
-  "LIG_diffs.png|notebooks/LIG127k_analyses_PALEOCALADJUSTED.ipynb"
+  "LIG-PI_icesm1p2_diffs.png|notebooks/LIG127k_analyses_PALEOCALADJUSTED.ipynb"
 )
 
 # --- arguments ---------------------------------------------------------------------------------

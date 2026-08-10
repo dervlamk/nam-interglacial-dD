@@ -49,4 +49,22 @@ for case in pi lgm; do
     done
 done
 
+# Time-invariant surface fields, PI only. PHIS is what the LIG notebook contours as model
+# topography, the way LGM_analyses.ipynb contours the 21 ka topo file -- and since the LIG's
+# ice sheets and land surface are essentially modern, the PI boundary condition is the right
+# one for it. One record is enough: neither field varies in time within a case.
+# Named '.constant.nc' rather than '.0801-0900.tseries.nc' so the filename does not imply a
+# 1200-record window it does not have.
+for VAR in PHIS LANDFRAC; do
+    IFILE="$PI_CASE_DIR/atm/proc/tseries/monthly/$VAR/${CASE_PREFIX[pi]}.cam.h0.$VAR.0001-0900.nc"
+    OFILE="$OUTDIR/$VAR.${CASE_TAG[pi]}.constant.nc"
+    if [ ! -f "$IFILE" ]; then
+        echo "Missing source file: $IFILE" >&2
+        exit 1
+    fi
+    echo "Subsetting pi/$VAR (time-invariant, first record only)..."
+    ncks -O -d time,0,0 $IFILE $OFILE
+    ncatted -O -a source_file,global,a,c,"${CASE_PREFIX[pi]}.cam.h0.$VAR.0001-0900.nc (record 0; field is time-invariant)" $OFILE
+done
+
 echo "Done. Output: \$REPO_ROOT/data/raw/"

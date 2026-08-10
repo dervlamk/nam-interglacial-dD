@@ -12,7 +12,7 @@ two interglacials, with **two halves that run on different machines**:
 | What | iCESM1.2 simulations of LIG (~127 ka), LGM (~21 ka) vs. PI control | Leaf-wax δD from two Gulf of California cores (NH22P, DSDP-480/479) |
 | Where | **NCAR HPC only** (Casper/Derecho, `/glade`) | **Laptop only** (proxy + obs data on OneDrive) |
 | Language | NCL + NCO + Python notebooks | MATLAB + Python notebooks |
-| Notebooks | `LGM_analyses`, `LIG127k_analyses_*` | `fig1_swna_modern_climate`, `fig2_dsdp480-479_agemodel`, `fig3_dDwax_timeseries` |
+| Notebooks (all under `notebooks/`) | `LGM_analyses`, `LIG127k_analyses_PALEOCALADJUSTED` | `swna_modern_climatology` (fig1), `dsdp-480-479_age-model` (fig2), `dDwax_timeslice-means_timeseries` (fig3) |
 
 It is not a software package — there is no build, lint, or test suite. The deliverables are the
 top-level Jupyter notebooks and the figures they produce.
@@ -151,18 +151,47 @@ numerical difference impossible to attribute.
 
 ## Repository layout
 
-- `LGM_analyses.ipynb`, `LIG127k_analyses_NOT_paleocaladjust.ipynb`,
-  `LIG127k_analyses_PALEOCALADJUSTED.ipynb` — the analysis notebooks. Each is self-contained: it
-  sets file paths, loads netCDF output with xarray, derives isotope ratios, and produces
-  publication figures. These are large (multi-MB) notebooks with embedded plot outputs.
-  - `NOT_paleocaladjust` vs `PALEOCALADJUSTED` are two versions of the LIG analysis that differ in
-    whether the model's simulated-calendar output has been adjusted to a fixed calendar
-    (paleoclimate orbital-forcing runs shift month boundaries relative to modern calendars — see
-    the calendar-adjustment cell in the PALEOCALADJUSTED notebook, which nudges timestamps by a
-    couple of days before grouping by month). Prefer the `PALEOCALADJUSTED` version for anything
-    LIG-related unless there's a specific reason to compare against the unadjusted output.
+- `notebooks/LGM_analyses.ipynb`, `notebooks/LIG127k_analyses_PALEOCALADJUSTED.ipynb` — the two
+  model-side analysis notebooks. They set file paths, load netCDF output with xarray, derive
+  isotope ratios, and produce publication figures. These are large (multi-MB) notebooks with
+  embedded plot outputs. They are **launched from `notebooks/`**, and resolve
+  `scripts/py_functions` and `data/` relative to `..`.
+  - **The two are deliberately parallel and share their machinery.** Loading, derivation,
+    seasonal averaging and significance testing all live in `scripts/py_functions/icesm_funcs.py`
+    and `stats_funcs.py`, imported by both — that is not incidental, it is what stops the
+    isotope/precip-weighting math and the t-test from drifting into two versions. If you change
+    how one notebook processes data, you are changing both; re-run both and check their figures.
+    Both use JAS, both difference against `iPI.01` years 801–900, both mask at p ≤ 0.05 (Welch's,
+    unpaired), and both compare against `data/processed/timeslice_mean_proxy_dDp.csv`.
+  - **The LIG output is calendar-adjusted, and its months come from record position.**
+    Paleoclimate orbital-forcing runs shift month boundaries relative to modern calendars;
+    PaleoCalAdjust corrects for it. The adjusted files then carry *paleo* month boundaries on
+    their time axis, so April is stamped `0401-05-01 05:36` and `.dt.month` returns no April and
+    two Mays. An older version of the notebook nudged the timestamps back two days to work around
+    that; it now assigns months positionally instead (twelve records per year, Jan–Dec), which is
+    what `cal_adjust.f90` actually guarantees. **Don't reintroduce the nudge.** The notebook's
+    header cell documents the whole adjustment, and there is an assertion in the processing cell
+    that fails if a re-adjusted file ever breaks the assumption.
+  - **The LIG notebook has no dynamics panel, on purpose.** Only 19 variables were
+    calendar-adjusted (16 isotope tracers + `PRECC`, `PRECL`, `TS`) — there is no adjusted
+    `U`/`V`/`OMEGA`/`Q`/`Z3`/`PSL`, so where `LGM_analyses` shows Δω₅₀₀ and 850 mb winds, the LIG
+    figure shows ΔTS. Producing the missing fields means re-running `cal_adjust.f90` (the rows are
+    already in `cal_adj_info_lig127ka.csv`) plus an adjusted `PS` and a `vinth2p` regrid; don't
+    paper over the gap by plotting unadjusted winds beside adjusted precipitation.
+  - `deprecated/LIG127k_analyses_NOT_paleocaladjust.ipynb` is the unadjusted version, reference
+    only. Prefer the adjusted notebook for anything LIG-related.
 - `scripts/py_functions/` — shared Python helpers imported by the notebooks via `sys.path` (see
   "Import pattern" below):
+  - `icesm_funcs.py` — `DAT_META` (canonical units/long_name for every derived field),
+    `derive_dat` (unit conversions, `PRECT`, precipitation-weighted `dDp`/`d18Op`),
+    `monthly_climatology`, `seasonal_means`, `windSpd`, and the two time-axis handlers
+    `assign_cesm_month_year` (raw CESM h0: end-of-period stamps, shift back two days) and
+    `assign_paleocal_month_year` (PaleoCalAdjust: positional). Everything downstream reads the
+    `month`/`year` coords these attach, never `.dt.month`/`.dt.year` — see the module docstring
+    for why.
+  - `stats_funcs.py` — `sigtest` (paired), `sigtest2n` (Welch's, what both notebooks use), and
+    `mask_insignificant`, which uses `.where()` so the masked field keeps its coords. Don't
+    revert it to `np.ma.masked_where`; that returns a bare MaskedArray and breaks `.sel()`.
   - `data_funcs.py` — the canonical source for `get_xy_coords`/`get_season`, plus
     `longitude_flip`, `regrid_like`, `latitude_weighted_mean`, used to work with xarray
     DataArrays whose lat/lon/time coordinate names vary between datasets.
@@ -202,21 +231,26 @@ numerical difference impossible to attribute.
   `config/paths.env` themselves (fail with an explicit error if it doesn't exist yet).
   - `subset_tseries.sh` is the exception to that isotope-post-processing description: it
     hyperslabs 25 raw variables (years 801-900) out of `$LGM_CASE_DIR`/`$PI_CASE_DIR` and writes
-    into `data/raw/`, this repo's own tree, not `$WORK_DATA_DIR`.
+    into `data/raw/`, this repo's own tree, not `$WORK_DATA_DIR`. It also extracts one record of
+    PI `PHIS`/`LANDFRAC` as `{VAR}.iPI.01.constant.nc` — time-invariant fields, so the filename
+    deliberately does not claim a 1200-record window. `PHIS` is the model topography the LIG
+    notebook contours; `LGM_analyses` contours the 21 ka topo file instead, because the LGM's
+    ice-sheet topography is not the modern one and the LIG's essentially is.
 - `data/processed/*.csv` — timeslice-mean proxy δD records (Holocene, LGM, LIG) by core, with lon/lat
   and 1-sigma error, used in the notebooks to validate model output against real-world records.
-  Two files are actually read, by different notebooks, on purpose: `LGM_analyses.ipynb` reads
-  `timeslice_mean_proxy_dDp.csv` (δD<sub>p</sub>, after the C3/C4 ε correction), because the
-  model quantity it's compared against is itself δD<sub>p</sub> (precipitation) — comparing
-  δD<sub>wax</sub> to δD<sub>p</sub> would mix in the leaf-wax/precipitation offset.
-  `LIG127k_analyses_PALEOCALADJUSTED.ipynb` still reads `timeslice_mean_proxy_dDraw.csv`
-  (as-measured δD<sub>C30</sub>). `timeslice_mean_proxy_dD.csv`, the older 3-timeslice file, is
-  read by neither. `data/processed/README.md` documents the ε offset between `dDraw` and `dD`/
-  `dDp` and the caveat about anomaly cancellation, though it predates `dDp.csv` and should be
-  read with that in mind.
+  **Both model notebooks read `timeslice_mean_proxy_dDp.csv`** (δD<sub>p</sub>, after the C3/C4 ε
+  correction), because the model quantity they are compared against is itself δD<sub>p</sub>
+  (precipitation) — comparing δD<sub>wax</sub> to δD<sub>p</sub> would mix in the leaf-wax/
+  precipitation offset. (The LIG notebook read `timeslice_mean_proxy_dDraw.csv` until 2026-08-10;
+  it no longer does.) `timeslice_mean_proxy_dDraw.csv` is still what the proxy-side figure
+  notebook writes and plots, as-measured δD<sub>C30</sub>; `timeslice_mean_proxy_dD.csv`, the
+  older 3-timeslice file, is read by nothing. `data/processed/README.md` documents the ε offset
+  between `dDraw` and `dD`/`dDp` and the caveat about anomaly cancellation, though it predates
+  `dDp.csv` and should be read with that in mind.
 - `scripts/matlab/` — the proxy pipeline (laptop only). See "The proxy half" above.
-- `fig1_swna_modern_climate.ipynb`, `fig2_dsdp480-479_agemodel.ipynb`,
-  `fig3_dDwax_timeseries.ipynb` — the proxy-side figure notebooks (laptop only).
+- `notebooks/swna_modern_climatology.ipynb`, `notebooks/dsdp-480-479_age-model.ipynb`,
+  `notebooks/dDwax_timeslice-means_timeseries.ipynb` — the proxy-side figure notebooks (laptop
+  only). These are the notebooks referred to elsewhere in this file as `fig1`/`fig2`/`fig3`.
 - `deprecated/` — superseded code kept for provenance, **reference only**. Its hardcoded
   absolute paths are dead and are left that way deliberately; see `deprecated/README.md`.
 - `scripts/claude_casper.sh` — grabs an interactive Casper compute node. Do not run agentic
@@ -316,8 +350,12 @@ Base data directories live in `config/paths.env` (gitignored; copy from
 `config/paths.env.example`). Two blocks, one per machine — set the block for the machine you
 are on and leave the other unset:
 
-- **HPC:** `SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`,
-  `LIG_TIMESERIES_JS_DIR`, `LGM_CASE_DIR`, `PI_CASE_DIR`, and `REPO_ROOT`. `LGM_CASE_DIR`/
+- **HPC:** `SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`, `LIG_ADJUSTED_DIR`,
+  `LIG_TIMESERIES_JS_DIR`, `LGM_CASE_DIR`, `PI_CASE_DIR`, and `REPO_ROOT`. `LIG_CASE_DIR` moved
+  2026-08-10: it was under `/glade/campaign/cesm/**development**/palwg/...`, which no longer
+  exists, and is now on `community` storage alongside the deglacial-slice cases.
+  `LIG_ADJUSTED_DIR` is the PaleoCalAdjust output the LIG notebook reads — outside `data/` on
+  purpose, since it is a PaleoCalAdjust product rather than one of this pipeline's. `LGM_CASE_DIR`/
   `PI_CASE_DIR` were located on campaign storage 2026-08-09 at
   `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/b.e12.B1850C5.f19_g16.{i21ka.03,iPI.01}`
   — per-variable monthly tseries (years 0001-0900, one file per variable), distinct from the
@@ -344,7 +382,7 @@ Notebooks add `scripts/py_functions` to `sys.path` relative to the notebook's ow
 do wildcard imports:
 
 ```python
-module_path = os.path.abspath(os.path.join('.'))
+module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path + "/scripts/py_functions")
 from map_plot_tools import *
@@ -353,7 +391,11 @@ from colorbar_funcs import *
 from data_funcs import *
 ```
 
-This only works if the notebook is run from the repo root (so `'.'` resolves there).
+`'..'`, not `'.'` — the notebooks live in `notebooks/` and must be launched from there, so
+`module_path` resolves to the repo root. `module_path` is then reused for data paths
+(`f'{module_path}/data/raw/...'`), and the small relative reads use `'../data/processed/...'`.
+Don't hardcode an absolute `/glade/...` path to reach `data/` — there is more than one clone of
+this repo on Casper, and an absolute path silently reads the wrong one.
 
 ## Environment
 
@@ -406,9 +448,13 @@ silently skip a figure whose `savefig()` is commented out.
 
 ## Working with the notebooks
 
-- These notebooks are long and stateful — cells build up dictionaries (`dat`, `files`, `dDp`,
-  `d18Op`, etc.) keyed by simulation (`'pi'`, `'lig'`, `'lgm'`) and variable name, and later cells
-  depend on earlier ones having been run in order.
+- These notebooks are long and stateful — cells build up dictionaries keyed by simulation
+  (`'pi'`, `'lig'`, `'lgm'`), variable name, and season, and later cells depend on earlier ones
+  having been run in order. Both model notebooks use the same names in the same order:
+  `files` → `raw` → `dat_ts` (per-year) and `dat_climo` (12-month climatology) →
+  `seas_mean`/`ann_seas_mean` → `{lgm,lig}_pi_diff`, `_diff_mask`, `_ptvals` → `panels` →
+  figures. The `_mask` variant is what the figures plot; the unmasked one is what the box means
+  and pattern correlations use.
 - Isotope ratios are computed as per-mil (‰) deviations: `(heavy/light - 1) * 1000`, with a tiny
   floor value substituted for near-zero denominators to avoid divide-by-zero.
 - Precipitation-weighted isotope averages are standard here: isotope ratios are weighted by each
