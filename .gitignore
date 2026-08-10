@@ -16,6 +16,7 @@ __pycache__/
 # Local outputs / scratch (not meant to live in the repo)
 figures/
 outputs/
+notebooks/outputs
 
 # =============================================================================
 # data/ — the TREE is tracked, the DATA is not.
