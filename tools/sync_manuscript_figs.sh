@@ -23,10 +23,14 @@ set -euo pipefail
 
 # --- the manuscript figure set ---------------------------------------------------------------
 # "<filename>|<notebook that produces it>"
+# The notebook path is relative to the repo root and must resolve, or the STALE? check below
+# silently does nothing — these were bare filenames until the notebooks moved into notebooks/.
 FIGURES=(
-  "modern_climo.png|swna_modern_climatology.ipynb"
-  "dsdp_480-479.agemodel.pdf|dsdp-480-479_age-model.ipynb"
-  "dDp_timeseries_stacked.pdf|dDwax_timeslice-means_timeseries.ipynb"
+  "modern_climo.png|notebooks/swna_modern_climatology.ipynb"
+  "dsdp_480-479.agemodel.pdf|notebooks/dsdp-480-479_age-model.ipynb"
+  "dDp_timeseries_stacked.pdf|notebooks/dDwax_timeslice-means_timeseries.ipynb"
+  "LGM-PI_icesm1p2_diffs.png|notebooks/LGM_analyses.ipynb"
+  "LIG_diffs.png|notebooks/LIG127k_analyses_PALEOCALADJUSTED.ipynb"
 )
 
 # --- arguments ---------------------------------------------------------------------------------
