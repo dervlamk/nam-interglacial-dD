@@ -45,6 +45,44 @@ def core_site_boxes():
     }
 
 
+def polygon_mask(da, poly):
+    """Boolean mask of the grid cells of `da` whose centres fall inside shapely `poly`.
+
+    The regionmask-free counterpart to regional_weighted_mean() below — `nam_dD_lig` does not
+    carry regionmask, and this only needs shapely, which it does carry.
+
+    Longitude convention is handled here: the polygons in this module are -180:180 (that is the
+    convention the proxy lon/lat columns use, and what cartopy's PlateCarree wants for
+    add_geometries), while the model and IMERG grids are 0:360. Cell centres are wrapped to
+    -180:180 before the containment test, and the mask comes back on `da`'s own coordinates, so
+    the caller never has to think about it.
+
+    Parameters
+    ----------
+    da   : xr.DataArray with 'lat' and 'lon' coordinates
+    poly : shapely Polygon in the -180:180 convention, e.g. nam_domain_outline()
+    """
+    import xarray as xr
+    from shapely import contains_xy
+
+    lon = ((da['lon'].values + 180) % 360) - 180
+    lon2d, lat2d = np.meshgrid(lon, da['lat'].values)
+    mask = contains_xy(poly, lon2d, lat2d)
+    return xr.DataArray(mask, coords={'lat': da['lat'], 'lon': da['lon']}, dims=('lat', 'lon'))
+
+
+def polygon_weighted_mean(da, poly):
+    """cos(lat)-weighted mean of `da` over the cells inside `poly`.
+
+    Same weighting as regional_weighted_mean() below and as the core-site box means in the
+    model notebooks, so a domain mean and a box mean are computed the same way. Cells outside
+    the polygon are set to NaN and skipped, which is what makes this differ from slicing a
+    lat/lon rectangle: an angled or non-rectangular domain keeps its actual shape.
+    """
+    weights = np.cos(np.deg2rad(da['lat']))
+    return da.where(polygon_mask(da, poly)).weighted(weights).mean(('lat', 'lon'))
+
+
 def regional_weighted_mean(da, regions):
     """Area-weighted mean of da for all regions, returning a DataArray with a 'region' dim.
 

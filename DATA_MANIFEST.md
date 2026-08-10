@@ -335,7 +335,47 @@ proxy-side notebooks need **except IMERG**:
 | Dataset | Path | Read by | |
 |---|---|---|---|
 | IMERG precipitation | `satellite/imerg/imerg.gn.timeseries.2001-2018.nc` | `fig1` | ⚠️ deliberately still outside the repo while the version to use is decided. **`fig1` reaches it by absolute path, not via `$OBS_DATA_DIR`**, so `obspath` is defined but unused in `fig1` — wiring it up would close the last hardcoded path in the proxy-side notebooks. A second candidate, `imerg_V07_19980101-20241231_monthly_gn.nc`, sits beside it in a disabled block in the same cell. `fig3` no longer defines `obspath` at all: it reads nothing from outside the repo. |
-| IMERG precipitation (model side) | `$WORK_DATA_DIR/obs_data/obs.imerg.precip.2001-2018.nc` → derived `imerg.gn.2001-2018.climo.nc` | `LGM_analyses.ipynb` | ⚠️ **2001–2018 is the project-wide baseline** (decided 2026-08-05). The notebook has been updated from 2011–2018, but **the derived climo has not been rebuilt** — the regeneration block in that cell must be run once on Casper, and `obs.imerg.precip.2001-2018.nc` must exist there. Until then the cell will not load. |
+| IMERG precipitation (model side) | `$WORK_DATA_DIR/obs_data/imerg.gn.timeseries.2001-2018.nc` → derived `imerg.gn.2001-2018.climo.nc` | `LGM_analyses.ipynb` (loads only), `LIG127k_analyses_PALEOCALADJUSTED.ipynb` (plots) | ✅ **2001–2018 is the project-wide baseline** (decided 2026-08-05). The derived climatology was rebuilt 2026-08-10 — see the longitude note below. |
+
+> **The derived IMERG climatology had a 180° longitude error until 2026-08-10.** The cached
+> `imerg.gn.2001-2018.climo.nc` held *correct data on a mislabelled axis*: an older code path
+> replaced lon with `np.linspace(0, 360, nlon)` — 0.100028° spacing running 0→360 inclusive,
+> instead of the true 0.1° grid — and then applied `roll(lon=nlon)`, which is the identity on an
+> `nlon`-long axis. Net effect: array values were still index-aligned with the source file, but
+> every longitude label was 180° from the truth. Verified by index: the cached field at raw index
+> 720 reproduces the source climatology at 107.95°W exactly, while the file labels that column
+> 72.02°E.
+>
+> **What it affected:** only the annual-cycle panel of `LIG127k_analyses_PALEOCALADJUSTED.ipynb`,
+> which was averaging ~72°E instead of the NAM domain. `LGM_analyses.ipynb` loads the same file
+> but plots nothing from it, and `swna_modern_climatology.ipynb` reads IMERG straight from
+> OneDrive, so neither is affected. The corrupt copy is kept for reference as
+> `imerg.climo.CORRUPT-LON.nc` outside the repo.
+>
+> **Why it survived:** the cache was written once by the old code, and the load branch was
+> `if os.path.exists(...)`, so the corrected wrap never ran again. Both model notebooks now
+> **validate the axis before trusting it** — a correct wrap stops one cell short of 360, the
+> broken one included both 0 and 360 — and raise rather than silently carrying on. Keep that
+> check when editing those cells; the failure mode is silent and produces a plausible-looking curve.
+>
+> **Both derived products are now built by `scripts/nco/make_imerg_climo.sh`, not in the notebook.**
+> The source is 216 monthly records on a 0.1° global grid — 5.6 GB in memory as float32 — and
+> deriving the climatology in-kernel (`transpose` → `groupby("time.month").mean` → coordinate sort
+> → write) materialises that several times over and kills the Jupyter kernel. `ncra` averages one
+> calendar month at a time and streams the record dimension: ~95 s, a few hundred MB. The script
+> writes two files, and the notebooks read them and do nothing heavy themselves:
+>
+> | | |
+> |---|---|
+> | `imerg.gn.2001-2018.climo.nc` | 12-month climatology, global, 0:360, mm/day, dims `(month, lat, lon)` |
+> | `imerg.gn.2001-2018.swna.tseries.nc` | the 10–42°N, 125–85°W window of the monthly timeseries, real time axis kept |
+>
+> The SW-NA subset exists because a climatology cannot give an *interannual* spread, and the
+> annual-cycle figure's error bars need one — re-opening the global timeseries in the kernel to
+> get it would reintroduce the memory problem. The window matches the `etopoSWNA` subset the
+> notebooks already take; the exact NAM domain polygon is applied to it in Python.
+> Verified 2026-08-10: the NCO climatology reproduces the source month-by-month to float
+> precision (max |diff| 4.8e-07 mm/day), and the domain means from the two files agree exactly.
 
 ---
 
@@ -345,7 +385,7 @@ proxy-side notebooks need **except IMERG**:
 |---|---|---|---|
 | PI control | `b.e12.B1850C5.f19_g16.iPI.01` | `$PI_CLIMO_DIR` = `/glade/campaign/univ/uazn0018/jiangzhu/archive/.../climo` | ✅ |
 | LIG 127 ka | `b.e12.B1850C5.f19_g16.iLIG127k.001` | `$LIG_CASE_DIR` = `/glade/campaign/cesm/community/palwg/LastInterglacial/iCESM1.2/...` | ✅ **moved 2026-08-10** — was under `.../cesm/development/palwg/...`, which no longer exists. Run is 501 years (`000101-050112`); per-variable monthly tseries in 50-year chunks. Branched from `iPI.01` at year 901 (`initial_file` attr). |
-| LIG 127 ka, calendar-adjusted | as above | `$LIG_ADJUSTED_DIR` = `/glade/work/$USER/PaleoCalAdjust/data/nc_files/adjusted_files` | ✅ what `LIG127k_analyses_PALEOCALADJUSTED.ipynb` actually reads. See §3 below. |
+| LIG 127 ka, calendar-adjusted | as above | `data/raw/*_Amon_CESM1.2_LIG127k_146031-182500_cal_adj.nc` | ✅ what `LIG127k_analyses_PALEOCALADJUSTED.ipynb` actually reads. Staged into the repo's own tree 2026-08-10, from `/glade/work/$USER/PaleoCalAdjust/data/nc_files/adjusted_files`. See §3 below. |
 | LGM 21 ka | `b.e12.B1850C5.f19_g16.i21ka.03` | `$LGM_CASE_DIR` = `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/...` | ✅ located 2026-08-09. Per-variable monthly tseries (years 0001-0900), not a climo dir — subset via `scripts/nco/subset_tseries.sh` into `data/raw/tseries/LGM/tseries_0801-0900/`. |
 | PI per-year tseries | `b.e12.B1850C5.f19_g16.iPI.01` | `$PI_CASE_DIR` = same `iCESM1.2-DeglacialSlice` tree, sibling of `LGM_CASE_DIR` | ✅ located 2026-08-09. Distinct from `PI_CLIMO_DIR` above (that path is climo-only). Subset via the same script into `data/raw/tseries/PI/tseries_0801-0900/`. |
 | LIG ocean timeseries | — | `$LIG_TIMESERIES_JS_DIR` = `/glade/scratch/jschnaubelt/...` | ⚠️ a **collaborator's scratch space**. Scratch is purged on a timer; this will disappear without warning. Copy what is needed to `/glade/work` or campaign storage. |
@@ -379,7 +419,7 @@ paleo month boundaries.
 | Local copy | `$WORK_DATA_DIR/PaleoCalAdjust/` (source in `f90/`, not vendored into this repo) |
 | Info file | `$WORK_DATA_DIR/PaleoCalAdjust/data/info_files/cal_adj_info_lig127ka.csv` |
 | Input | `$WORK_DATA_DIR/LIG/tseries_last_100_yrs/{atm.2d.vars,dh.precIsotopes,o.precIsotopes}.iLIG127k.tseries.nc` — the run's last 100 years, 401–500 |
-| Output | `$LIG_ADJUSTED_DIR/{varn}_Amon_CESM1.2_LIG127k_146031-182500_cal_adj.nc`, 1200 monthly records each. The number pair is days since year 0, i.e. years 401–500. |
+| Output | `{varn}_Amon_CESM1.2_LIG127k_146031-182500_cal_adj.nc`, 1200 monthly records each. The number pair is days since year 0, i.e. years 401–500. Written to `PaleoCalAdjust/data/nc_files/adjusted_files/`; **copied into `data/raw/` on 2026-08-10, which is now the canonical location** — the notebook resolves them from `$REPO_ROOT`, so replication needs a clone plus `data/raw/` and no PaleoCalAdjust install. |
 | Settings | age 127 ka, `noleap`, Harzallah pseudo-daily interpolation, `match_mean=TRUE`, `tol=0.01`, no negative-value clipping |
 | Written | 2025-04-11 |
 

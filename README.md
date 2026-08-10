@@ -93,9 +93,12 @@ filesystem. The pipeline runs in four stages:
    SST, D/H and O isotope variables).
 2. **Pressure-level regridding** (`scripts/ncl/pressureRegrid*.ncl`) — interpolate 3D fields from
    the model's hybrid sigma-pressure levels onto standard pressure levels via `vinth2p`.
-3. **NCO isotope post-processing** (`scripts/nco/*.sh`) — extract/derive isotope tracer variables
-   (requires `module load nco`).
-4. **Python analysis** (top-level notebooks) — load the intermediate netCDFs with xarray, compute
+3. **NCO post-processing** (`scripts/nco/*.sh`) — extract/derive isotope tracer variables, subset
+   the per-year model timeseries (`subset_tseries.sh`), and derive the IMERG climatology and
+   SW-NA subset (`make_imerg_climo.sh`). Requires `module load nco`. Anything that would need
+   gigabytes resident in a Jupyter kernel belongs in this stage, not in a notebook — the IMERG
+   source alone is 5.6 GB in memory.
+4. **Python analysis** (notebooks) — load the intermediate netCDFs with xarray, compute
    isotope ratios in per-mil (‰) notation, precipitation-weight them, take LIG−PI / LGM−PI
    differences, and produce figures, validating against `data/processed/*.csv` (see
    `data/processed/README.md`) and external observational datasets (e.g. IMERG precipitation, ETOPO

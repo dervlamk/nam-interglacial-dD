@@ -229,6 +229,16 @@ numerical difference impossible to attribute.
 - `scripts/nco/` — NCO (`ncks`/`ncap2`) wrappers for isotope post-processing (extracting isotope
   tracer variables, integrating isotope ratios over levels). Require `module load nco`; source
   `config/paths.env` themselves (fail with an explicit error if it doesn't exist yet).
+  - `make_imerg_climo.sh` builds the two derived IMERG products the model notebooks read — the
+    global 12-month climatology and the SW-NA window of the monthly timeseries (which keeps its
+    time axis, so the annual-cycle figure can get an interannual standard deviation from it).
+    **This must not move back into a notebook.** The source is 216 records on a 0.1° global grid,
+    5.6 GB in memory as float32; deriving the climatology in-kernel materialises that several
+    times over and kills the Jupyter kernel. `ncra` streams the record dimension instead — one
+    pass per calendar month, ~95 s, a few hundred MB. The script also does the 0:360 wrap with
+    `ncks --msa`, which moves data and labels together; the in-notebook version that relabelled
+    `lon` and rolled by `nlon` left every label 180° out for months without erroring. Both
+    notebooks validate the axis on load and raise rather than trust it.
   - `subset_tseries.sh` is the exception to that isotope-post-processing description: it
     hyperslabs 25 raw variables (years 801-900) out of `$LGM_CASE_DIR`/`$PI_CASE_DIR` and writes
     into `data/raw/`, this repo's own tree, not `$WORK_DATA_DIR`. It also extracts one record of
@@ -350,12 +360,12 @@ Base data directories live in `config/paths.env` (gitignored; copy from
 `config/paths.env.example`). Two blocks, one per machine — set the block for the machine you
 are on and leave the other unset:
 
-- **HPC:** `SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`, `LIG_ADJUSTED_DIR`,
+- **HPC:** `SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`,
   `LIG_TIMESERIES_JS_DIR`, `LGM_CASE_DIR`, `PI_CASE_DIR`, and `REPO_ROOT`. `LIG_CASE_DIR` moved
   2026-08-10: it was under `/glade/campaign/cesm/**development**/palwg/...`, which no longer
-  exists, and is now on `community` storage alongside the deglacial-slice cases.
-  `LIG_ADJUSTED_DIR` is the PaleoCalAdjust output the LIG notebook reads — outside `data/` on
-  purpose, since it is a PaleoCalAdjust product rather than one of this pipeline's. `LGM_CASE_DIR`/
+  exists, and is now on `community` storage alongside the deglacial-slice cases. There is
+  deliberately no variable for the calendar-adjusted LIG output — it lives in `data/raw/`, see
+  the layout section above. `LGM_CASE_DIR`/
   `PI_CASE_DIR` were located on campaign storage 2026-08-09 at
   `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/b.e12.B1850C5.f19_g16.{i21ka.03,iPI.01}`
   — per-variable monthly tseries (years 0001-0900, one file per variable), distinct from the
