@@ -45,46 +45,50 @@ def get_season(season='ann'):
         mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     return mons
 
-def longitude_flip(var):
-    """ Convert longitude values from the -180:180 to 0:360 convention or vice versa.
-        
-        ** Only works for global data. Do not apply to data with a clipped longitude range **
-        
-        Parameters
-        ----------
-        var : Data Array
-    """    
-    # get var info
-    x,_=get_xy_coords(var) # extract original longitude values
-    lon_name=x.name        # store name of longitude coordinate
-    nx=len(x)              # longitude resolution
-    # Coerce the endpoints to plain floats. Passing 0-d DataArrays to np.linspace makes numpy
-    # wrap its 1-D result back into a DataArray carrying dims=(), which assign_coords then
-    # rejects with "dimensions () must have the same length as the number of data dimensions".
-    # float() also avoids the builtin min()/max() iterating the coordinate element by element.
-    lon_min,lon_max=float(x.min()),float(x.max())
 
-    # determine longitude format and create an array of new lons in opposite convention
-    if lon_min<0:
-        # if there are negative values, data is -180:180 and need to switch to 0:360
-        new_lons=np.linspace((lon_min+180), (lon_max+180), nx)
-    elif lon_max>180:
-        # if the max value is >180, data is in 0:360 format and need to switch to -180:180
-        new_lons=np.linspace((lon_min-180), (lon_max-180), nx)
-        
-    # shift the data by 180° of longitude
-    nshift=nx//2
-    var=var.roll({lon_name: nshift}, roll_coords=False)
-            
-    # update longitude coord with new values
-    var=var.assign_coords({lon_name: new_lons})
-    
-    # add attributes documenting change
-    timestamp=datetime.now().strftime("%B %d, %Y, %r")
-    var.attrs['history']=f'flipped longitudes {timestamp}'
-    var.attrs['original_lons']=x.values
-    
-    return(var)
+def lonFlip(var):
+    """
+    Convert longitude values from the -180:180 to 0:360 convention or vice versa.
+
+    ** Works for both global data due to auto-detection of longitude convention **
+    More efficient than rolling: only relabels coordinates + sorts.
+
+    Parameters
+    ----------
+    var : xr.DataArray or xr.Dataset
+    """
+
+    #=== Get var info
+    try:
+        lon_name = var.cf.axes["X"][0]
+    except KeyError:
+        # fallback: find coordinate with 'lon' in its name
+        lon_name = [c for c in var.coords if 'lon' in c.lower()][0]
+    # extract lon array
+    lon=var[lon_name]
+
+    #=== Detect current longitude convention and wrap values
+    if lon.min() < 0:
+        # -180:180 -> 0:360
+        new_lon = lon % 360
+        target_range = "0:360"
+    else:
+        # 0:360 -> -180:180
+        new_lon = ((lon + 180) % 360) - 180
+        target_range = "-180:180"
+
+    #=== Assign and sort
+    var = var.assign_coords({lon_name: new_lon}).sortby(lon_name)
+
+    #=== Add history
+    timestamp = datetime.now().strftime("%B %d, %Y, %r")
+    hist_message = f"wrapped longitudes to {target_range} on {timestamp}"
+    if isinstance(var, xr.DataArray):
+        var.attrs["history"] = hist_message
+    else: # Dataset
+        var.attrs["history"] = var.attrs.get("history","") + "\n" + hist_message
+
+    return var
 
 def regrid_like(ref, var):
     """
