@@ -306,9 +306,11 @@ Base data directories live in `config/paths.env` (gitignored; copy from
 are on and leave the other unset:
 
 - **HPC:** `SCRATCH_DIR`, `WORK_DATA_DIR`, `PI_CLIMO_DIR`, `LIG_CASE_DIR`,
-  `LIG_TIMESERIES_JS_DIR`, and `LGM_CASE_DIR` (**not yet set** — the LGM case
-  `b.e12.B1850C5.f19_g16.i21ka.03` has not been located on glade; the only known copy is on an
-  unmounted lab volume. Search glade before transferring anything.)
+  `LIG_TIMESERIES_JS_DIR`, `LGM_CASE_DIR`, and `PI_CASE_DIR`. `LGM_CASE_DIR`/`PI_CASE_DIR` were
+  located on campaign storage 2026-08-09 at
+  `/glade/campaign/cesm/community/palwg/iCESM1.2-DeglacialSlice/b.e12.B1850C5.f19_g16.{i21ka.03,iPI.01}`
+  — per-variable monthly tseries (years 0001-0900, one file per variable), distinct from the
+  climatology-only `PI_CLIMO_DIR` above. See `scripts/nco/subset_deglacial_tseries.sh`.
 - **Laptop:** `PROXY_DATA_DIR`, `OBS_DATA_DIR`, `FIG_OUTPUT_DIR`.
 
 Env vars rather than a YAML/Python config because NCL `getenv()`, the NCO shell scripts, and
