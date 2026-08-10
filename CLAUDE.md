@@ -194,9 +194,15 @@ numerical difference impossible to attribute.
   `config/paths.env` themselves (fail with an explicit error if it doesn't exist yet).
 - `data/processed/*.csv` — timeslice-mean proxy δD records (Holocene, LGM, LIG) by core, with lon/lat
   and 1-sigma error, used in the notebooks to validate model output against real-world records.
-  Only `timeslice_mean_proxy_dDraw.csv` is actually read by the notebooks — that is correct;
-  the other file came from a cell its author disabled. `data/processed/README.md` documents the
-  provenance of both, the ε offset between them, and the caveat about anomaly cancellation.
+  Two files are actually read, by different notebooks, on purpose: `LGM_analyses.ipynb` reads
+  `timeslice_mean_proxy_dDp.csv` (δD<sub>p</sub>, after the C3/C4 ε correction), because the
+  model quantity it's compared against is itself δD<sub>p</sub> (precipitation) — comparing
+  δD<sub>wax</sub> to δD<sub>p</sub> would mix in the leaf-wax/precipitation offset.
+  `LIG127k_analyses_PALEOCALADJUSTED.ipynb` still reads `timeslice_mean_proxy_dDraw.csv`
+  (as-measured δD<sub>C30</sub>). `timeslice_mean_proxy_dD.csv`, the older 3-timeslice file, is
+  read by neither. `data/processed/README.md` documents the ε offset between `dDraw` and `dD`/
+  `dDp` and the caveat about anomaly cancellation, though it predates `dDp.csv` and should be
+  read with that in mind.
 - `scripts/matlab/` — the proxy pipeline (laptop only). See "The proxy half" above.
 - `fig1_swna_modern_climate.ipynb`, `fig2_dsdp480-479_agemodel.ipynb`,
   `fig3_dDwax_timeseries.ipynb` — the proxy-side figure notebooks (laptop only).

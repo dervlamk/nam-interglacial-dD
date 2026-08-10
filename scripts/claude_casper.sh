@@ -28,7 +28,7 @@
 
 set -euo pipefail
 
-ACCOUNT="${ACCOUNT:-uazn0018}"
+ACCOUNT="${ACCOUNT:-UAZN0034}"
 QUEUE="${QUEUE:-casper}"
 NCPUS="${NCPUS:-4}"
 MEM="${MEM:-32GB}"
