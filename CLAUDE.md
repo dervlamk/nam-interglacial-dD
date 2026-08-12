@@ -284,7 +284,14 @@ Runs on the laptop only. Reads from `$PROXY_DATA_DIR` and `$OBS_DATA_DIR` (OneDr
 3. `pJAS_calculation.m` — Bayesian univariate regression (Gibbs, 10 chains × 1000 draws,
    first 200 discarded, thinned by 2, R̂ diagnostic) mapping δD<sub>p</sub> → %JAS rainfall.
    **Not self-contained** — expects `X` (%JAS) and `Y` (δD) already in the workspace.
-4. `SST_dD_correlation.m` — δD<sub>p</sub> against SST and LR04 δ¹⁸O.
+4. `SST_dD_correlation.m` — δD<sub>p</sub> against SST and LR04 δ¹⁸O. Written once (May 2022)
+   and never wired into a notebook. **Retired 2026-08-12:** its LR04 δ¹⁸O correlation (Ebisuzaki
+   1997 phase-randomization test, both cores) now lives in `fig3`'s own cells, ported to Python
+   against the current `*_FAMEs_current.mat` data rather than the 2022-vintage `.mat` files the
+   script's hardcoded row indices assumed. Its SST-vs-δD<sub>p</sub> half was **dropped, not
+   ported** — `nh22p_uk_sst.mat` doesn't exist anywhere in this repo, `data/external/`, or
+   `~/OneDrive`, and its provenance (which SST reconstruction, which publication) was never
+   documented anywhere. The script itself is left in place, unmodified, for historical reference.
 5. `fig1`/`fig2`/`fig3` notebooks — figures.
 
 `avg_monthly_precip_Tucson.m` and `jas_instrumental_precip_timeseries.m` are standalone
