@@ -183,12 +183,29 @@ numerical difference impossible to attribute.
 - `scripts/py_functions/` — shared Python helpers imported by the notebooks via `sys.path` (see
   "Import pattern" below):
   - `icesm_funcs.py` — `DAT_META` (canonical units/long_name for every derived field),
-    `derive_dat` (unit conversions, `PRECT`, precipitation-weighted `dDp`/`d18Op`),
+    `derive_dat` (unit conversions, `PRECT`, and the `dDp`/`d18Op` isotope ratios),
     `monthly_climatology`, `seasonal_means`, `windSpd`, and the two time-axis handlers
     `assign_cesm_month_year` (raw CESM h0: end-of-period stamps, shift back two days) and
     `assign_paleocal_month_year` (PaleoCalAdjust: positional). Everything downstream reads the
     `month`/`year` coords these attach, never `.dt.month`/`.dt.year` — see the module docstring
     for why.
+    - **The isotope precipitation weighting lives in `seasonal_means()`, not `derive_dat()`**
+      (moved 2026-08-13). `derive_dat` returns `dDp`/`d18Op` as plain per-mil ratios per month;
+      `seasonal_means` weights the fields named in `WEIGHTED_VARNS` by `weight_varn` (default
+      `PRECT`) and raises if that field is missing from `dat_varns`. It has to happen there
+      because a weight formed as a month's share of its *annual* precipitation does not
+      renormalise over a season: pre-multiplying and then taking a plain mean returned the JAS
+      box means at roughly a tenth of their true size, and the annual ones at exactly 1/12.
+      Correctly weighted, the LGM−PI JAS box means are −6.05‰ (Guaymas) and −5.15‰ (Mazatlán).
+      `derive_dat` lost its `time_dim` argument in the same change — it had existed only to pick
+      which axis to normalise the weights over.
+    - **Weighting is equal-year, not pooled.** Months are weighted by precipitation *within*
+      each year and the years are then averaged equally, so `seas_mean` is exactly the mean of
+      `ann_seas_mean`. That identity is load-bearing: it keeps the difference the maps plot equal
+      to the difference of the two samples `sigtest2n()` compares, and it is what the assertion
+      in `LGM_analyses.ipynb`'s per-year box-mean cell checks. Pooling instead (one
+      `Σ(δD·P)/Σ(P)` over the whole record, letting wet years count for more) shifts the JAS box
+      means by about 0.2‰ and breaks it.
   - `stats_funcs.py` — `sigtest` (paired), `sigtest2n` (Welch's, what both notebooks use), and
     `mask_insignificant`, which uses `.where()` so the masked field keeps its coords. Don't
     revert it to `np.ma.masked_where`; that returns a bare MaskedArray and breaks `.sel()`.
@@ -474,7 +491,10 @@ silently skip a figure whose `savefig()` is commented out.
   and pattern correlations use.
 - Isotope ratios are computed as per-mil (‰) deviations: `(heavy/light - 1) * 1000`, with a tiny
   floor value substituted for near-zero denominators to avoid divide-by-zero.
-- Precipitation-weighted isotope averages are standard here: isotope ratios are weighted by each
-  month's fraction of annual total precipitation before combining across months.
+- Precipitation-weighted isotope averages are standard here, but the weighting is applied when
+  the months are averaged, by `seasonal_means()` — **not** when the ratios are derived. Each
+  season's mean is `Σ(δD·P)/Σ(P)` over that season's months within a year, averaged equally
+  across years. Weighting by a month's share of *annual* precipitation and then taking a plain
+  mean is the bug that was fixed on 2026-08-13; don't reintroduce it.
 - When editing a notebook, use a notebook-aware tool (e.g. Claude Code's NotebookEdit) rather than
   treating the file as plain text/JSON — the plain Edit tool refuses `.ipynb` files outright.

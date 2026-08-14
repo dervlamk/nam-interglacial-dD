@@ -33,11 +33,17 @@ DAT_META = {
     'PRECC': {'units': 'mm/day', 'long_name': 'convective precipitation rate'},
     'PRECL': {'units': 'mm/day', 'long_name': 'large-scale precipitation rate'},
     'PRECT': {'units': 'mm/day', 'long_name': 'total precipitation', 'source': 'PRECC + PRECL'},
-    'dDp':   {'units': u'‰',     'long_name': u'precipitation-weighted δD of precipitation',
-              'source': 'PREC{RC,RL,SC,SL}_HDO over H2O equivalents, weighted by PRECT'},
-    'd18Op': {'units': u'‰',     'long_name': u'precipitation-weighted δ18O of precipitation',
-              'source': 'PREC{RC,RL,SC,SL}_H218O over H216O equivalents, weighted by PRECT'},
+    # NOTE: these are plain per-mil ratios per month. The precipitation weighting is applied by
+    # seasonal_means(), not here -- see WEIGHTED_VARNS and the note in that function.
+    'dDp':   {'units': u'‰',     'long_name': u'δD of precipitation',
+              'source': 'PREC{RC,RL,SC,SL}_HDO over H2O equivalents; PRECT-weighted by seasonal_means()'},
+    'd18Op': {'units': u'‰',     'long_name': u'δ18O of precipitation',
+              'source': 'PREC{RC,RL,SC,SL}_H218O over H216O equivalents; PRECT-weighted by seasonal_means()'},
 }
+
+# Fields that must be averaged over time weighted by precipitation rather than as a plain mean.
+# The weighting is applied in seasonal_means(), where the set of months being averaged is known.
+WEIGHTED_VARNS = ('dDp', 'd18Op')
 
 # pass-through fields: loaded and relabelled, no unit conversion or derivation
 PASSTHROUGH_VARNS = ['TS', 'OMEGA', 'U', 'V', 'PSL', 'Q', 'Z3']
@@ -95,16 +101,17 @@ def assign_paleocal_month_year(da, first_year):
     return da.assign_coords(month=('time', month), year=('time', year))
 
 
-def derive_dat(raw, cases, dat_varns, time_dim):
+def derive_dat(raw, cases, dat_varns):
     """Build the dat_varns-keyed derived dict (unit conversions, PRECT, dDp, d18Op) from a
-    raw[case][varn] dict. Used once for the climatology (time_dim='month') and once for the
-    per-year subset (time_dim='time') -- the isotope/precip-weighting math is identical, only
-    the name of the shared time axis differs. Factored out so the dDp/d18Op formula has one
-    source, not two copies that can drift apart.
+    raw[case][varn] dict. Used once for the climatology and once for the per-year subset --
+    the math is identical either way, which is why this takes no argument naming the time axis.
+    Factored out so the dDp/d18Op formula has one source, not two copies that can drift apart.
 
-    With time_dim='time' the arrays must carry a `year` coord (assign_cesm_month_year or
-    assign_paleocal_month_year put one there); precipitation weights are formed within each
-    year, not across the whole record.
+    dDp/d18Op come out as plain per-mil ratios, one per record. They are NOT weighted here:
+    weighting by each month's share of its own ANNUAL total precipitation cannot produce a
+    correct sub-annual mean, because the weights over any subset of months sum to that subset's
+    share of the year rather than to 1. seasonal_means() does the weighting instead, where the
+    months being averaged are known.
 
     Every output is stamped with its DAT_META name/units/long_name before being returned, so a
     derived field never carries the identity of whichever raw variable happened to be operand #1.
@@ -120,14 +127,7 @@ def derive_dat(raw, cases, dat_varns, time_dim):
                 # calculate total precip from convective and large-scale prec vars (snow+rain).
                 dat[case][varn] = dat[case]['PRECC'] + dat[case]['PRECL']
             else:
-                #== calculate precipitation-weighted fields
-                # Weights are each month's share of its OWN year's total precipitation, so they sum to 1 per year on either axis.
-                if time_dim == 'month':
-                    annual_total_p = dat[case]['PRECT'].sum(dim='month')
-                    pWeights = dat[case]['PRECT']/annual_total_p
-                else:
-                    annual_total_p = dat[case]['PRECT'].groupby('year').sum('time')
-                    pWeights = dat[case]['PRECT'].groupby('year')/annual_total_p
+                #== calculate isotope ratios of precipitation (unweighted -- see the docstring)
                 # the ptiny constant floors the denominator of the isotope ratio equation to prevent divide by zero
                 ptiny=1e-18
                 if varn=='dDp':
@@ -138,8 +138,7 @@ def derive_dat(raw, cases, dat_varns, time_dim):
                     phyd = phyd.where(phyd > ptiny, ptiny)
                     # turn into per mil notation
                     dd = (pdeu/phyd - 1)*1000
-                    # Multiply isotope values by weights
-                    dat[case][varn] = dd*pWeights
+                    dat[case][varn] = dd
                 elif varn=='d18Op':
                     # Oxygen
                     p16o = raw[case]['PRECRC_H216Or'] + raw[case]['PRECRL_H216OR'] + raw[case]['PRECSC_H216Os'] + raw[case]['PRECSL_H216OS']
@@ -148,8 +147,7 @@ def derive_dat(raw, cases, dat_varns, time_dim):
                     p16o = p16o.where(p16o > ptiny, ptiny)
                     # turn into per mil notation
                     do = (p18o/p16o - 1)*1000
-                    # Multiply isotope values by weights
-                    dat[case][varn] = do*pWeights
+                    dat[case][varn] = do
                 else:
                     # raise, don't print -- an unassigned key surfaces much later as a confusing
                     # KeyError somewhere downstream instead of here.
@@ -175,8 +173,16 @@ def monthly_climatology(raw, cases, raw_varns):
             for case in cases}
 
 
-def seasonal_means(dat_ts, cases, dat_varns, seasons):
+def seasonal_means(dat_ts, cases, dat_varns, seasons, weight_varn='PRECT'):
     """Seasonal means of a per-year derived dict, both collapsed and per-year.
+
+    The isotope fields in WEIGHTED_VARNS are averaged weighted by `weight_varn`, everything
+    else as a plain mean. The weighting lives here rather than in derive_dat() because it can
+    only be done once the set of months is known: a weight formed as a month's share of its
+    ANNUAL precipitation does not renormalise over a season, so pre-multiplying and then taking
+    a plain mean returns the seasonal weighted mean scaled by (season's share of annual precip)
+    / (number of months) -- for JAS roughly a tenth of the right answer, and by a factor that
+    varies year to year and grid cell to grid cell rather than a constant.
 
     Returns
     -------
@@ -184,6 +190,12 @@ def seasonal_means(dat_ts, cases, dat_varns, seasons):
     ann_seas_mean : [case][varn][season] -- one value per simulation year, which is the
                     sample the significance tests in stats_funcs.py consume.
     """
+    if any(varn in WEIGHTED_VARNS for varn in dat_varns) and weight_varn not in dat_varns:
+        # the weighted branch reaches into dat_ts for this field; without it the isotope means
+        # would silently fall back to unweighted, which is the bug this function exists to avoid
+        raise KeyError(f'{weight_varn} must be in dat_varns to weight '
+                       f'{[v for v in dat_varns if v in WEIGHTED_VARNS]}')
+
     seas_mean     = {case: {varn: {} for varn in dat_varns} for case in cases}
     ann_seas_mean = {case: {varn: {} for varn in dat_varns} for case in cases}
     for case in cases:
@@ -195,8 +207,26 @@ def seasonal_means(dat_ts, cases, dat_varns, seasons):
                 cal_months = [m + 1 for m in get_season(season=season)]
                 da = dat_ts[case][varn]
                 da = da.sel(time=da['month'].isin(cal_months))
-                seas_mean[case][varn][season] = da.mean(dim='time')
-                ann_seas_mean[case][varn][season] = da.groupby('year').mean(dim='time')
+                if varn in WEIGHTED_VARNS:
+                    p = dat_ts[case][weight_varn]
+                    p = p.sel(time=p['month'].isin(cal_months))
+                    # Weight months by precipitation WITHIN each year, then average the years
+                    # equally -- deliberately not one pooled Sum(dD*P)/Sum(P) over the whole
+                    # record, which would let wet years count for more. Two consequences that
+                    # the code downstream relies on: seas_mean is exactly the mean of
+                    # ann_seas_mean (so the difference the maps plot is the difference of the
+                    # two samples sigtest2n() actually compares -- for the unweighted fields
+                    # that has always been true for free), and the anomaly figure's central
+                    # value is the mean of the very per-year sample whose spread it shows as an
+                    # error bar. Pooling gives a JAS box mean ~0.19 permil different; the
+                    # choice is equal-year.
+                    per_year = ((da * p).groupby('year').sum('time')
+                                / p.groupby('year').sum('time'))
+                    ann_seas_mean[case][varn][season] = per_year
+                    seas_mean[case][varn][season] = per_year.mean('year')
+                else:
+                    seas_mean[case][varn][season] = da.mean(dim='time')
+                    ann_seas_mean[case][varn][season] = da.groupby('year').mean(dim='time')
     return seas_mean, ann_seas_mean
 
 
