@@ -35,9 +35,6 @@ def lonlat_box(lon_min, lon_max, lat_min, lat_max):
 
 def core_site_boxes():
     """The two core-site sampling regions, as shapely Polygons keyed by site.
-
-    These are the boxes the regional OIPC dDp averages were taken over, so they are what a map
-    should show if it is documenting where those averages came from.
     """
     return {
         'Guaymas':  lonlat_box(-114, -109, 26, 30),
