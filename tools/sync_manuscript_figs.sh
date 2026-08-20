@@ -29,7 +29,7 @@ FIGURES=(
   "modern_climo.png|notebooks/swna_modern_climatology.ipynb"
   "dsdp_480-479.agemodel.pdf|notebooks/dsdp-480-479_age-model.ipynb"
   "dDp_timeseries_with_lr04_correlation.pdf|notebooks/dDwax_timeslice-means_timeseries.ipynb"
-  "LGM-PI_icesm1p2_diffs.png|notebooks/LGM_analyses.ipynb"
+  "LGM-PI_icesm1p2_diffs_jjas.png|notebooks/LGM_analyses.ipynb"
   "LIG-PI_icesm1p2_diffs.png|notebooks/LIG127k_analyses_PALEOCALADJUSTED.ipynb"
 )
 
@@ -69,6 +69,60 @@ if [ ! -d "$SRC" ]; then
 fi
 SRC=$(cd "$SRC" && pwd)   # normalise ../ away so the messages below are readable
 DEST="$SRC/for_manuscript"
+
+# --- validate against the shared figure manifest --------------------------------------------------
+# tools/figures.manifest in the manuscript repo is the single source of truth for which figures
+# exist; pull_manuscript_figs.sh there checks the same manifest. Catch a FIGURES entry added or
+# removed on one side without the matching edit on the other before copying anything.
+if [ -n "${MANUSCRIPT_REPO_DIR:-}" ]; then
+  MANUSCRIPT_REPO="$MANUSCRIPT_REPO_DIR"
+else
+  MANUSCRIPT_REPO="$REPO_ROOT/../manuscript-repo"
+fi
+MANIFEST="$MANUSCRIPT_REPO/tools/figures.manifest"
+
+if [ ! -f "$MANIFEST" ]; then
+  echo "figure manifest not found: $MANIFEST" >&2
+  echo "Set MANUSCRIPT_REPO_DIR to the manuscript repo's checkout, or check the sibling-dir" >&2
+  echo "default (../manuscript-repo relative to this repo) matches your layout." >&2
+  exit 2
+fi
+
+manifest_names=()
+while IFS= read -r line; do
+  line="${line%%#*}"
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
+  [ -n "$line" ] && manifest_names+=("$line")
+done < "$MANIFEST"
+
+figures_names=()
+for entry in "${FIGURES[@]}"; do
+  figures_names+=("${entry%%|*}")
+done
+
+manifest_mismatch=0
+for name in "${figures_names[@]}"; do
+  found=0
+  for m in "${manifest_names[@]}"; do
+    [ "$m" = "$name" ] && { found=1; break; }
+  done
+  [ "$found" -eq 1 ] || {
+    echo "FIGURES has '$name' but it is not in the manuscript repo's tools/figures.manifest — add it there" >&2
+    manifest_mismatch=1
+  }
+done
+for m in "${manifest_names[@]}"; do
+  found=0
+  for name in "${figures_names[@]}"; do
+    [ "$m" = "$name" ] && { found=1; break; }
+  done
+  [ "$found" -eq 1 ] || {
+    echo "tools/figures.manifest lists '$m' but FIGURES here has no entry for it" >&2
+    manifest_mismatch=1
+  }
+done
+[ "$manifest_mismatch" -eq 0 ] || exit 2
 
 echo "from: $SRC"
 echo "to:   $DEST"
