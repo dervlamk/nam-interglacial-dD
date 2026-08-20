@@ -40,8 +40,8 @@ def core_site_boxes():
     should show if it is documenting where those averages came from.
     """
     return {
-        'Guaymas':  lonlat_box(-113, -109, 26, 29.5),
-        'Mazatlan': lonlat_box(-108, -104, 21, 24.5),
+        'Guaymas':  lonlat_box(-114, -109, 26, 30),
+        'Mazatlan': lonlat_box(-111, -106, 20, 24),
     }
 
 
