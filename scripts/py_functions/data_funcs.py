@@ -1,6 +1,7 @@
 import os
 import sys
 import xarray as xr
+import cf_xarray  # noqa: F401 -- registers the .cf accessor used in lonFlip()
 import netCDF4 as nc
 import numpy as np
 import metpy.calc as mp
@@ -61,7 +62,7 @@ def lonFlip(var):
     #=== Get var info
     try:
         lon_name = var.cf.axes["X"][0]
-    except KeyError:
+    except (AttributeError, KeyError):
         # fallback: find coordinate with 'lon' in its name
         lon_name = [c for c in var.coords if 'lon' in c.lower()][0]
     # extract lon array

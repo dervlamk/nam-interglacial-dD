@@ -28,6 +28,7 @@ dependencies:
   - xarray=2025.3
   - netcdf4=1.7
   - metpy=1.6
+  - cf_xarray=0.11  # registers the .cf accessor used by lonFlip() in data_funcs.py
   - cartopy=0.24
   - shapely=2.1
   - cmocean=4.0
