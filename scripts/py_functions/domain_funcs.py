@@ -38,7 +38,7 @@ def core_site_boxes():
     """
     return {
         'Guaymas':  lonlat_box(-114, -109, 26, 30),
-        'Mazatlan': lonlat_box(-111, -106, 19.5, 23.5),
+        'Mazatlan': lonlat_box(-109.5, -104.5, 20, 24),
     }
 
 
