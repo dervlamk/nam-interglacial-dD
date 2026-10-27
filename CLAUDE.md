@@ -404,8 +404,15 @@ Python all read them; a Python-only config would strand two-thirds of the pipeli
 - `scripts/nco/*.sh` source it directly.
 - `scripts/ncl/*.ncl` read it via NCL's `getenv()` — `source config/paths.env` in your shell
   before invoking `ncl`.
-- Notebooks read `WORK_DATA_DIR` via `os.environ.get('WORK_DATA_DIR', '/glade/work/dervlamk')`, so
-  they still work with no setup at all, defaulting to the original hardcoded path.
+- **Notebooks do not need `paths.env` sourced.** Jupyter launched from the HPC OnDemand portal
+  gets no shell setup (its form has no environment field), so each notebook's first code cell has
+  a `# --- PATHS ---` block of `*_LOCAL` values (`WORK_DATA_DIR_LOCAL`, `HPC_FIG_OUTPUT_DIR_LOCAL`,
+  `PROXY_DATA_DIR_LOCAL`, `OBS_DATA_DIR_LOCAL`, `FIG_OUTPUT_DIR_LOCAL`). Each path resolves as the
+  env var if set, else the `*_LOCAL` value, so sourcing the file still works and wins. To change
+  a notebook's path on a machine, edit that block. The `*_LOCAL` values are per-notebook, so a
+  change to one is not picked up by the others. `FIG_OUTPUT_DIR_LOCAL` defaults to a glade path;
+  on the laptop, source `paths.env` (or edit it) so figures go to OneDrive, where
+  `tools/sync_manuscript_figs.sh` looks. There is no silent repo-local default for figures.
 
 Everything else (CESM case/file names, per-variable lists inside each script) is still hardcoded
 per script, matching the specific simulation each script was written for.
