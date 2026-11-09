@@ -30,6 +30,8 @@ def get_season(season='ann'):
         mons = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     if season in ['DJF', 'djf']:
         mons = [0, 1, 11]
+    if season in ['DJFM', 'djfm']:
+        mons = [0, 1, 2, 11]
     if season in ['JFM', 'jfm']:
         mons = [0, 1, 2]
     if season in ['MAM', 'mam']:
